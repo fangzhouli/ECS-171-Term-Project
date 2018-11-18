@@ -34,25 +34,27 @@ def makeDataCsv():
 	for elm in players[1:]:
 		line = [elm[0], '2010']
 		line.extend([0] * 26)
+		lines.append(line)
 	# Store player ID and initial time of who are playing on the field
 	playerID = []
 	start = []
-	for event in events:
+	for event in events[1:]:
 		# If event type is sub_in, record
 		if event[10] == 'sub_in':
-			palyerID.append(event[9])
+			playerID.append(event[9])
 			start.append(int(event[7]))
 		# If event type is sub_out, check if the player has been recorded
 		elif event[10] == 'sub_out':
 			# Player is recorded, time is the interval
 			if event[9] in playerID:
 				old = lines[int(event[9]) - 600001][2]
-				new = event[7] - start.pop(playerID.index(event[9]))
-				lines[int(event[9]) - 600001][2] = old + new
+				new = int(event[7]) - start.pop(playerID.index(event[9]))
+				lines[int(event[9]) - 600001][2] = int(old) + int(new)
+				playerID.pop(playerID.index(event[9]))
 			# Player is not recorded, time is from the beginning
 			else:
 				lines[int(event[9]) - 600001][2] = event[7]
-			playerID.pop(playerID.index(event[9]))
+
 		# elif event[10] == 'timeout':
 		# 	while playerID:
 		# 		old = lines[int(playerID[0]) - 600001][2]
@@ -62,7 +64,7 @@ def makeDataCsv():
 		# 		start.pop(0)
 		# else:
 		# 	lines[int()]
-
+	print(lines)
 	# with open
 
 def main():
