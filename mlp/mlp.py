@@ -15,6 +15,10 @@ class glb:
     id_2018 = None  # sampleID of the 1st row of 2018's matches in the dataset.
     init_b = None   # initial value of bias
     r_l = None      # learning rate
+    X_train = None  # Training inputs
+    X_test = None   # Testing inputs
+    Y_train = None  # Training outputs
+    Y_test = None   # Testing outputs
 
 # Initialization of global variables.
 # Input:
@@ -60,19 +64,22 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
         df.iloc[:, i] = ((df.iloc[:, i] - df.iloc[:, i].mean())
                           /df.iloc[:, i].std())
     glb.df = df
-
-
-#   - @model_name: str
-#        prefix of the saving file's name in './mlp/checkpoints' of the model
-def run(model_name):
     # Split data
     X = glb.df.iloc[:, 0:glb.n_feat].values
     Y = glb.df.iloc[:, glb.n_feat:].values
-    X_train = X[0:glb.id_2018,]
-    X_test = X[glb.id_2018:,]
-    Y_train = Y[0:glb.id_2018,]
-    Y_test = Y[glb.id_2018:,]
+    glb.X_train = X[0:glb.id_2018,]
+    glb.X_test = X[glb.id_2018:,]
+    glb.Y_train = Y[0:glb.id_2018,]
+    glb.Y_test = Y[glb.id_2018:,]
 
+# Create a new model through training with data from 2011~2017
+# Input:
+#   - @model_name: str
+#        Prefix of the name of the model's file to be saved in
+#          './mlp/checkpoints'.
+# Output:
+#   - Tensorflow files saved under './mlp/checkpoints'.
+def new_model(model_name):
     # input and output layers placeholders
     X = tf.placeholder(tf.float32, [None, glb.n_feat], name='X')
     Y = tf.placeholder(tf.float32, [None, 1], name='Y')
@@ -129,13 +136,13 @@ def run(model_name):
     # Get training and testing accuracy
     def get_acc():
         # Compute training accuracy
-        Y_pred_tr = sess.run(y['out'], feed_dict={X: X_train})
-        acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr), Y_train),
-                                        tf.float32))
+        Y_pred_tr = sess.run(y['out'], feed_dict={X: glb.X_train})
+        acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr),
+                                                 glb.Y_train), tf.float32))
         # Compute testing accuracy
-        Y_pred_ts = sess.run(y['out'], feed_dict={X: X_test})
-        acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts), Y_test),
-                                        tf.float32))
+        Y_pred_ts = sess.run(y['out'], feed_dict={X: glb.X_test})
+        acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts),
+                                                 glb.Y_test), tf.float32))
         return sess.run(acc_tr), sess.run(acc_ts)
 
     saver = tf.train.Saver()
@@ -148,9 +155,9 @@ def run(model_name):
             print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
             print()
             # for every sample
-            for i in range(X_train.shape[0]):
-                sess.run(train_step, feed_dict={X: X_train[i, None],
-                                                Y: Y_train[i, None]})
+            for i in range(glb.X_train.shape[0]):
+                sess.run(train_step, feed_dict={X: glb.X_train[i, None],
+                                                Y: glb.Y_train[i, None]})
             if epoch % 100 == 0:
                 saver.save(sess, "./mlp/checkpoints/"+model_name,
                            global_step = epoch)
@@ -160,13 +167,104 @@ def run(model_name):
         print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
         print()
 
-# Test generated data 'fake_feature/feature.csv'
-def test_gen():
+# Load from the lastest model from './mlp/checkpoints/ and continue training'
+# Input:
+#   - @model_name: str
+#        Prefix of the name of the model's file to be saved in
+#          './mlp/checkpoints'.
+#   - @meta_name: str
+#        Prefix of the '.meta' file to be loaded.
+#        E.X.: 'model-100' if the '.meta' file is named 'model-100.meta'
+#   - @epoch_start: int
+#        Start epoch; pretty much the end epoch of the model to be loaded, so
+#          'epoch_start' should be 300 if the model to be loaded was saved at
+#          epoch 300 unless user intended to do other testing.
+#   - @model_path: str, default './mlp/checkpoints/'
+#        Path to the checkpoint directory.
+# Output:
+#   - Tensorflow files saved under './mlp/checkpoints'.
+def continue_model(model_name, meta_name,
+                   epoch_start, model_path='./mlp/checkpoints/'):
+    # Weights, biases, and output function
+    W = {}
+    b = {}
+    y = {}
+
+    # Get training and testing accuracy
+    def get_acc():
+        # Compute training accuracy
+        Y_pred_tr = sess.run(y['out'], feed_dict={X: glb.X_train})
+        acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr),
+                                                 glb.Y_train), tf.float32))
+        # Compute testing accuracy
+        Y_pred_ts = sess.run(y['out'], feed_dict={X: glb.X_test})
+        acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts),
+                                                 glb.Y_test), tf.float32))
+        return sess.run(acc_tr), sess.run(acc_ts)
+
+    with tf.Session() as sess:
+        saver = tf.train.import_meta_graph(model_path + meta_name + '.meta')
+        saver.restore(sess, tf.train.latest_checkpoint(model_path))
+        graph = tf.get_default_graph()
+
+        # input and output layers placeholders
+        X = graph.get_tensor_by_name('X:0')
+        Y = graph.get_tensor_by_name('Y:0')
+
+        # Hidden layers construction
+        for i in range(glb.n_hidden):
+            layer = 'h' + str(i+1)
+            W[layer] = graph.get_tensor_by_name('W' + str(i+1) + ':0')
+            b[layer] = graph.get_tensor_by_name('b' + str(i+1) + ':0')
+
+            # Hidden layer 1: Input is X
+            if i == 0:
+                y[layer] = tf.nn.sigmoid(tf.matmul(X, W[layer]) + b[layer])
+            # Other hidden layers: connect from its previous layer y[layer-1]
+            else:
+                prev_layer = 'h'+str(i)
+                y[layer] = tf.nn.sigmoid(tf.matmul(y[prev_layer], W[layer])
+                                         + b[layer])
+
+        # Output layer construction
+        W['out'] = graph.get_tensor_by_name('Wout:0')
+        b['out'] = graph.get_tensor_by_name('bout:0')
+        y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y)-1)], W['out'])
+                              + b['out'])
+
+        # Loss function: binary cross entropy with 1e-30 to avoid log(0)
+        cross_entropy = -tf.reduce_sum(Y * tf.log(y['out']+1e-30)
+                                       + (1-Y) * tf.log(1-y['out']+1e-30),
+                                       reduction_indices=[1])
+        # Back-propagation
+        train_step = (tf.train.GradientDescentOptimizer(glb.r_l)
+                      .minimize(cross_entropy))
+
+        for epoch in range(epoch_start, glb.n_epoch):
+            print('Epoch', epoch)
+            print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
+            print()
+            # for every sample
+            for i in range(glb.X_train.shape[0]):
+                sess.run(train_step, feed_dict={X: glb.X_train[i, None],
+                                                Y: glb.Y_train[i, None]})
+            if epoch % 100 == 0:
+                saver.save(sess, "./mlp/checkpoints/"+model_name,
+                           global_step = epoch)
+                print('Session saved.\n')
+
+        print('Epoch', glb.n_epoch)
+        print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
+        print()
+
+############################## Testing functions ##############################
+
+# Test 'new_model()' using generated data 'fake_feature/feature.csv'.
+def test_new_model():
     # MUST RUN FROM TOP DIRECTORY, I.E. YOU'RE RUNNING THIS SCRIPT USING PATH
     #   './mlp/mlp.py'.
     try:
-        init(10, 10, 2, 100, 9001,
-             filename='./mlp/fake_feature/feature.csv')
+        init(10, 10, 2, 100, 9001, filename='./mlp/fake_feature/feature.csv')
     except Exception as e:
         print(e)
         msg = (
@@ -175,4 +273,9 @@ def test_gen():
             "'./mlp/mlp.py'. \u001b[0m")
         print(msg)
         exit(0)
-    run('fake_model')
+    new_model('fake_model')
+
+# Assuming 'test_gen()' is invoked beforehand and one single session is saved.
+def test_continue_model():
+    init(10, 10, 2, 100, 9001, filename='./mlp/fake_feature/feature.csv')
+    load_model('fake_model', 'fake_model-0', 1)
