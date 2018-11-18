@@ -7,9 +7,8 @@ Usage:
 
 '''
 TODO:
-	1. Figure out how to deal with the situation when the game is end, but the players
-		are still in the arrays, playerID and start
-	2. curr the event type other than subin subout.
+	1. Eliminate negative values for time.
+	2. When the result is correct, write to a new CSV file
 '''
 
 path1 = '/Users/fzli/Desktop/ECS/171/Project/' + \
@@ -72,9 +71,10 @@ def makeDataCsv():
 				playerID.pop(0)
 				start.pop(0)
 		curr += 1
-		
+
 	print(lines)
-	# with open
+	# TODO
+	# Write to a new csv file
 
 def main():
 	makeDataCsv()
