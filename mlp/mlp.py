@@ -3,7 +3,6 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
-import atexit   # For saving weights when program exits
 
 # Global variables
 class glb:
@@ -63,7 +62,9 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
     glb.df = df
 
 
-def run():
+#   - @model_name: str
+#        prefix of the saving file's name in './mlp/checkpoints' of the model
+def run(model_name):
     # Split data
     X = glb.df.iloc[:, 0:glb.n_feat].values
     Y = glb.df.iloc[:, glb.n_feat:].values
@@ -150,12 +151,28 @@ def run():
             for i in range(X_train.shape[0]):
                 sess.run(train_step, feed_dict={X: X_train[i, None],
                                                 Y: Y_train[i, None]})
-            saver.save(sess, "./mlp")
+            if epoch % 100 == 0:
+                saver.save(sess, "./mlp/checkpoints/"+model_name,
+                           global_step = epoch)
+                print('Session saved.\n')
+
         print('Epoch', glb.n_epoch)
         print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
         print()
 
 # Test generated data 'fake_feature/feature.csv'
 def test_gen():
-    init(10, 10, 2, 100, 9001, filename='fake_feature/feature.csv')
-    run()
+    # MUST RUN FROM TOP DIRECTORY, I.E. YOU'RE RUNNING THIS SCRIPT USING PATH
+    #   './mlp/mlp.py'.
+    try:
+        init(10, 10, 2, 100, 9001,
+             filename='./mlp/fake_feature/feature.csv')
+    except Exception as e:
+        print(e)
+        msg = (
+            "\u001b[31mPlease check if you are running the script from the "
+            "top directory, i.e., make sure you are running using the path"
+            "'./mlp/mlp.py'. \u001b[0m")
+        print(msg)
+        exit(0)
+    run('fake_model')
