@@ -3,15 +3,16 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import atexit   # For saving weights when program exits
 
 # Global variables
 class glb:
     seed = 1234
     df = None       # dataframe
-    n_feat = None  # number of features
-    n_node = None  # number of neurals in each hidden layer
+    n_feat = None   # number of features
+    n_node = None   # number of neurals in each hidden layer
     n_hidden = None # number of hidden layers
-    n_epoch = None # number of training epochs
+    n_epoch = None  # number of training epochs
     id_2018 = None  # sampleID of the 1st row of 2018's matches in the dataset.
     init_b = None   # initial value of bias
     r_l = None      # learning rate
@@ -72,8 +73,8 @@ def run():
     Y_test = Y[glb.id_2018:,]
 
     # input and output layers placeholders
-    X = tf.placeholder(tf.float32, [None, glb.n_feat])
-    Y = tf.placeholder(tf.float32, [None, 1])
+    X = tf.placeholder(tf.float32, [None, glb.n_feat], name='X')
+    Y = tf.placeholder(tf.float32, [None, 1], name='Y')
 
     # Weights, biases, and output function
     W = {}
@@ -93,7 +94,9 @@ def run():
                                    initializer=(tf.contrib.layers
                                                 .xavier_initializer(
                                                    seed=glb.seed)))
-        b[layer] = tf.Variable(tf.zeros([1, glb.n_node]) + glb.init_b)
+        b[layer] = tf.get_variable('b'+str(i+1),
+                                    initializer=(tf.zeros([1, glb.n_node])
+                                                 + glb.init_b))
 
         # Hidden layer 1: Input is X
         if i == 0:
@@ -106,11 +109,12 @@ def run():
 
     # Output layer construction
     W['out'] = tf.get_variable('Wout', shape=[glb.n_node, 1],
-                            initializer=tf.contrib.layers.xavier_initializer(
-                                                            seed=glb.seed))
-    b['out'] = tf.Variable(tf.zeros([1, 1]) + glb.init_b)
+                               initializer=tf.contrib.layers
+                                           .xavier_initializer(seed=glb.seed))
+    b['out'] = tf.get_variable('bout', initializer=(tf.zeros([1, 1])
+                                                    + glb.init_b))
     y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y)-1)], W['out'])
-                          + b['out'])
+                             + b['out'])
 
     # Loss function: binary cross entropy with 1e-30 to avoid log(0)
     cross_entropy = -tf.reduce_sum(Y * tf.log(y['out']+1e-30)
@@ -133,6 +137,7 @@ def run():
                                         tf.float32))
         return sess.run(acc_tr), sess.run(acc_ts)
 
+    saver = tf.train.Saver()
 
     with tf.Session() as sess:
         sess.run(init)
@@ -145,6 +150,7 @@ def run():
             for i in range(X_train.shape[0]):
                 sess.run(train_step, feed_dict={X: X_train[i, None],
                                                 Y: Y_train[i, None]})
+            saver.save(sess, "./mlp")
         print('Epoch', glb.n_epoch)
         print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
         print()
