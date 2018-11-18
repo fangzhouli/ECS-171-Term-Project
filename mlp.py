@@ -34,18 +34,20 @@ class glb:
 #        Learning rate
 #   - @random: boolean, default False
 #        Flag for whether to randomize the rows.
+#   - @filename: str, default 'feature.csv'
+#        Name of the file that contains the dataset
 #
 # Output:
 #   - N/A
-def init(n_feat, n_node, n_hidden, n_epoch, id_2018, init_b=1.0, r_l=0.1,
-         random=False):
+def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
+         init_b=1.0, r_l=0.1, random=False, filename='feature.csv'):
     # NP settings: print 250 chars/line; no summarization; always print floats
     np.set_printoptions(linewidth=250, threshold=np.nan, suppress=True)
-    glb.df = pd.read_csv('feature.csv', header=0, sep=',', index_col=0)
+    df = pd.read_csv(filename, header=0, sep=',', index_col=0)
     # Randomize rows
     if(random):
-        glb.df = glb.df.sample(frac=1, random_state=glb.seed)
-        glb.df = glb.df.reset_index(drop = True)
+        df = df.sample(frac=1, random_state=glb.seed)
+        df = df.reset_index(drop = True)
     glb.n_feat = n_feat
     glb.n_node = n_node
     glb.n_hidden = n_hidden
@@ -53,6 +55,11 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018, init_b=1.0, r_l=0.1,
     glb.id_2018 = id_2018
     glb.init_b = init_b
     glb.r_l = r_l
+    # Normalize features
+    for i in range(n_feat):
+        df.iloc[:, i] = ((df.iloc[:, i] - df.iloc[:, i].mean())
+                          /df.iloc[:, i].std())
+    glb.df = df
 
 
 def run():
@@ -102,21 +109,47 @@ def run():
                             initializer=tf.contrib.layers.xavier_initializer(
                                                             seed=glb.seed))
     b['out'] = tf.Variable(tf.zeros([1, 1]) + glb.init_b)
-    y['out'] =  tf.nn.softmax(tf.matmul(y['h'+str(len(y)-1)], W['out'])
-                              + b['out'])
+    y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y)-1)], W['out'])
+                          + b['out'])
 
-    # Loss function
-    cross_entropy = tf.reduce_mean(-tf.reduce_sum(Y * tf.log(y['out']),
-                                                  reduction_indices=[1]))
+    # Loss function: binary cross entropy with 1e-30 to avoid log(0)
+    cross_entropy = -tf.reduce_sum(Y * tf.log(y['out']+1e-30)
+                                   + (1-Y) * tf.log(1-y['out']+1e-30),
+                                   reduction_indices=[1])
     # Back-propagation
     train_step = (tf.train.GradientDescentOptimizer(glb.r_l)
                   .minimize(cross_entropy))
     init = tf.global_variables_initializer()
 
+    # Get training and testing accuracy
+    def get_acc():
+        # Compute training accuracy
+        Y_pred_tr = sess.run(y['out'], feed_dict={X: X_train})
+        acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr), Y_train),
+                                        tf.float32))
+        # Compute testing accuracy
+        Y_pred_ts = sess.run(y['out'], feed_dict={X: X_test})
+        acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts), Y_test),
+                                        tf.float32))
+        return sess.run(acc_tr), sess.run(acc_ts)
+
+
     with tf.Session() as sess:
         sess.run(init)
+
         for epoch in range(glb.n_epoch):
+            print('Epoch', epoch)
+            print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
+            print()
             # for every sample
             for i in range(X_train.shape[0]):
                 sess.run(train_step, feed_dict={X: X_train[i, None],
                                                 Y: Y_train[i, None]})
+        print('Epoch', glb.n_epoch)
+        print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
+        print()
+
+# Test generated data 'fake_feature/feature.csv'
+def test_gen():
+    init(10, 10, 2, 100, 9001, filename='fake_feature/feature.csv')
+    run()
