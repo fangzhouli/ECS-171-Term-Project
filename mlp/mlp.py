@@ -257,6 +257,43 @@ def continue_model(model_name, meta_name,
         print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
         print()
 
+
+# Create a header consists of each weight for './mlp/datapoints/*.csv' files.
+# Output:
+#   - a list with column names of the weights
+def get_pts_csv_header():
+    # The algorithm might look hedious, and there really isn't an easy way to
+    #   explain it soley with comments, but running this snippet line by line will
+    #   make it quite obvious.
+    csv_header = []
+    # Get names for weights in each hidden layers
+    for i in range(glb.n_hidden):
+        # first hidden layer, # of input is # of features
+        if i == 0:
+            n_in = glb.n_feat
+        else:
+            n_in = glb.n_node
+        n_out = glb.n_node
+        # Prefix, i.e., 'W1_' for hidden layer 1, 'W2_' for hidden layer 2, etc
+        pfix = ['W' + str(i+1) + '_'] * (n_in*n_out)
+        # Column indice in the matrix, i.e., '1_' for column 1
+        c = [str(i+1) + '_' for i in range(n_out)] * n_in
+        # Row indice in the matrix, i.e., '1_' for row 1
+        r = [[str(i+1)] * n_out for i in range(n_in)]
+        r = [i for l in r for i in l]   # to flatten the list
+        # Combine prefixes and column & row indice together.
+        csv_header += [a+b+c for a,b,c in zip(pfix,c,r)]
+        # Add biases to the list
+        csv_header += ['b' + str(i+1) + '_' + str(j+1) for j in range(n_out)]
+
+    # Add the names for the final layer
+    csv_header += ['W' + str(glb.n_hidden + 1) + '_1_'
+                    + str(i+1) for i in range(glb.n_node)]
+    csv_header += ['b' + str(glb.n_hidden + 1) + '_1']
+
+    return csv_header
+
+
 ############################## Testing functions ##############################
 
 # Test 'new_model()' using generated data 'fake_feature/feature.csv'.
