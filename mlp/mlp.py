@@ -201,12 +201,16 @@ def new_model(model_name, intvl_save=100, intvl_write=10):
 #        Start epoch; pretty much the end epoch of the model to be loaded, so
 #          'epoch_start' should be 300 if the model to be loaded was saved at
 #          epoch 300 unless user intended to do other testing.
+#   - @intvl_save: int, default 100
+#        Number of epochs to run before saving Tensorflow files
+#   - @intvl_write: int, default 10
+#        Number of epochs to run before saving to './mlp/datapoints/*.csv'
 #   - @model_path: str, default './mlp/checkpoints/'
 #        Path to the checkpoint directory.
 # Output:
 #   - Tensorflow files saved under './mlp/checkpoints'.
-def continue_model(model_name, meta_name,
-                   epoch_start, model_path='./mlp/checkpoints/'):
+def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
+                   intvl_write=10, model_path='./mlp/checkpoints/'):
     # Weights, biases, and output function
     W = {}
     b = {}
@@ -224,7 +228,12 @@ def continue_model(model_name, meta_name,
                                                  glb.Y_test), tf.float32))
         return sess.run(acc_tr), sess.run(acc_ts)
 
-    with tf.Session() as sess:
+    # './mlp/datapoints/[model_name]_[n_hidden]_[n_node].csv'
+    fmt = '_'.join(['./mlp/datapoints/' + model_name,
+                    str(glb.n_hidden), str(glb.n_node) + '.csv'])
+
+    with tf.Session() as sess, open(fmt, 'a') as f:
+        writer = csv.writer(f)
         saver = tf.train.import_meta_graph(model_path + meta_name + '.meta')
         saver.restore(sess, tf.train.latest_checkpoint(model_path))
         graph = tf.get_default_graph()
@@ -263,21 +272,32 @@ def continue_model(model_name, meta_name,
                       .minimize(cross_entropy))
 
         for epoch in range(epoch_start, glb.n_epoch):
-            print('Epoch', epoch)
-            print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
-            print()
-            # for every sample
-            for i in range(glb.X_train.shape[0]):
-                sess.run(train_step, feed_dict={X: glb.X_train[i, None],
-                                                Y: glb.Y_train[i, None]})
-            if epoch % 100 == 0:
+            acc_tr, acc_ts = get_acc()
+
+            if epoch % intvl_write == 0:
+                write_pts_csv(sess, writer, epoch, W, b, acc_tr, acc_ts)
+
+            if epoch % intvl_save == 0:
                 saver.save(sess, "./mlp/checkpoints/"+model_name,
                            global_step = epoch)
                 print('Session saved.\n')
 
+            print('Epoch', epoch)
+            print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
+                                                                    acc_ts))
+            # for every sample
+            for i in range(glb.X_train.shape[0]):
+                sess.run(train_step, feed_dict={X: glb.X_train[i, None],
+                                                Y: glb.Y_train[i, None]})
+        # Save everything after last epoch
+        acc_tr, acc_ts = get_acc()
+        write_pts_csv(sess, writer, glb.n_epoch, W, b, acc_tr, acc_ts)
+        saver.save(sess, "./mlp/checkpoints/"+model_name,
+                   global_step = glb.n_epoch)
+        print('Session saved.\n')
         print('Epoch', glb.n_epoch)
-        print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
-        print()
+        print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
+                                                                acc_ts))
 
 
 # Create a header consists of each weight for './mlp/datapoints/*.csv' files
@@ -319,6 +339,25 @@ def get_pts_csv_header():
     csv_header += ['training_acc', 'testing_acc']
     return csv_header
 
+# Write weights, biases, and accuracy to './mlp/datapoints/*.csv' from current
+#   session.
+# Input:
+#   - @sess: tf.Session()
+#        Current Tensorflow session.
+#   - @writer: csv.writer
+#        csv writer created for the desinated file
+#   - @epoch: int
+#        current epoch
+#   - @W: dict
+#        The weight dictionary
+#   - @b: dict
+#        The bias dictionary
+#   - @acc_tr:
+#        Training accruacy of current iteration
+#   - @acc_ts:
+#        Testing accuracy of current iteration
+# Output:
+#   - writes line to buffer which will then be stored to the specified file.
 def write_pts_csv(sess, writer, epoch, W, b, acc_tr, acc_ts):
     line = [epoch]  # Line to be written
     # For every hidden layer
@@ -352,7 +391,8 @@ def test_new_model():
         exit(0)
     new_model('fake_model', intvl_save=2, intvl_write=2)
 
-# Assuming 'test_gen()' is invoked beforehand and one single session is saved.
+# Assuming 'test_gen()' is invoked beforehand and left off at epoch 13
 def test_continue_model():
-    init(10, 10, 2, 100, 9001, filename='./mlp/fake_feature/feature.csv')
-    load_model('fake_model', 'fake_model-0', 1)
+    init(10, 10, 2, 26, 9001, filename='./mlp/fake_feature/feature.csv')
+    continue_model('fake_model', 'fake_model-13', 14,
+                   intvl_save=2, intvl_write=2)
