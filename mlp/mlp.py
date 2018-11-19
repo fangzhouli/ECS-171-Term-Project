@@ -3,6 +3,7 @@ import math
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import csv
 
 # Global variables
 class glb:
@@ -75,8 +76,8 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
 # Create a new model through training with data from 2011~2017
 # Input:
 #   - @model_name: str
-#        Prefix of the name of the model's file to be saved in
-#          './mlp/checkpoints'.
+#        Prefix of the name of the model's files to be saved in
+#          './mlp/checkpoints' and './mlp/checkpoints/'.
 # Output:
 #   - Tensorflow files saved under './mlp/checkpoints'.
 def new_model(model_name):
@@ -147,13 +148,34 @@ def new_model(model_name):
 
     saver = tf.train.Saver()
 
-    with tf.Session() as sess:
+    # './mlp/datapoints/[model_name]_[n_hidden]_[n_node].csv'
+    fmt = '_'.join(['./mlp/datapoints/' + model_name,
+                    str(glb.n_hidden), str(glb.n_node) + '.csv'])
+
+    with tf.Session() as sess, open(fmt, 'a') as f:
         sess.run(init)
+        writer = csv.writer(f)
+        writer.writerow(get_pts_csv_header())
 
         for epoch in range(glb.n_epoch):
+            acc_tr, acc_ts = get_acc()
+
+            line = [epoch]  # Line to be written
+            # For every hidden layer
+            for i in range(glb.n_hidden):
+                layer = 'h' + str(i+1)
+                line += sess.run(W[layer]).flatten().tolist()
+                line += sess.run(b[layer]).flatten().tolist()
+            # Add final layer
+            line += sess.run(W['out']).flatten().tolist()
+            line += sess.run(b['out']).flatten().tolist()
+            # Add accuracy, too
+            line += [acc_tr, acc_ts]
+            writer.writerow(line)
+
             print('Epoch', epoch)
-            print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
-            print()
+            print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
+                                                                    acc_ts))
             # for every sample
             for i in range(glb.X_train.shape[0]):
                 sess.run(train_step, feed_dict={X: glb.X_train[i, None],
