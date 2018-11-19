@@ -82,9 +82,14 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
 #        Number of epochs to run before saving Tensorflow files
 #   - @intvl_write: int, default 10
 #        Number of epochs to run before saving to './mlp/datapoints/*.csv'
+#   - @compact_plot: boolean, default True
+#        flag for whether to plot compact or detailed plot; the difference
+#        between a compact and a detailed plot is that former contains mean of
+#        each layer's weights and biases and the latter contains individual
+#        value of every single weight.
 # Output:
 #   - Tensorflow files saved under './mlp/checkpoints'.
-def new_model(model_name, intvl_save=100, intvl_write=10):
+def new_model(model_name, intvl_save=100, intvl_write=10, compact_plot=True):
     # input and output layers placeholders
     X = tf.placeholder(tf.float32, [None, glb.n_feat], name='X')
     Y = tf.placeholder(tf.float32, [None, 1], name='Y')
@@ -152,20 +157,22 @@ def new_model(model_name, intvl_save=100, intvl_write=10):
 
     saver = tf.train.Saver(max_to_keep=None)
 
-    # './mlp/datapoints/[model_name]_[n_hidden]_[n_node].csv'
-    fmt = '_'.join(['./mlp/datapoints/' + model_name,
-                    str(glb.n_hidden), str(glb.n_node) + '.csv'])
+    # './mlp/datapoints
+    #   /[model_name]_[n_hidden]_[n_node]_[compact/detailed].csv'
+    postfix = {True: 'compact', False: 'detailed'}
+    fmt = '_'.join(['./mlp/datapoints/' + model_name, str(glb.n_hidden),
+                    str(glb.n_node), postfix[compact_plot] + '.csv'])
 
     with tf.Session() as sess, open(fmt, 'a') as f:
         sess.run(init)
         writer = csv.writer(f)
-        writer.writerow(get_pts_csv_header())
-
+        writer.writerow(get_pts_csv_header(compact_plot))
         for epoch in range(glb.n_epoch):
             acc_tr, acc_ts = get_acc()
 
             if epoch % intvl_write == 0:
-                write_pts_csv(sess, writer, epoch, W, b, acc_tr, acc_ts)
+                write_pts_csv(compact_plot, sess, writer, epoch, W, b,
+                              acc_tr, acc_ts)
 
             if epoch % intvl_save == 0:
                 saver.save(sess, "./mlp/checkpoints/"+model_name,
@@ -181,7 +188,8 @@ def new_model(model_name, intvl_save=100, intvl_write=10):
                                                 Y: glb.Y_train[i, None]})
         # Save everything after last epoch
         acc_tr, acc_ts = get_acc()
-        write_pts_csv(sess, writer, glb.n_epoch, W, b, acc_tr, acc_ts)
+        write_pts_csv(compact_plot, sess, writer, glb.n_epoch, W, b,
+                      acc_tr, acc_ts)
         saver.save(sess, "./mlp/checkpoints/"+model_name,
                    global_step = glb.n_epoch)
         print('Session saved.\n')
@@ -207,10 +215,16 @@ def new_model(model_name, intvl_save=100, intvl_write=10):
 #        Number of epochs to run before saving to './mlp/datapoints/*.csv'
 #   - @model_path: str, default './mlp/checkpoints/'
 #        Path to the checkpoint directory.
+#   - @compact_plot: boolean, default True
+#        flag for whether to plot compact or detailed plot; the difference
+#        between a compact and a detailed plot is that former contains mean of
+#        each layer's weights and biases and the latter contains individual
+#        value of every single weight.
 # Output:
 #   - Tensorflow files saved under './mlp/checkpoints'.
 def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
-                   intvl_write=10, model_path='./mlp/checkpoints/'):
+                   intvl_write=10, model_path='./mlp/checkpoints/',
+                   compact_plot = True):
     # Weights, biases, and output function
     W = {}
     b = {}
@@ -228,7 +242,9 @@ def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
                                                  glb.Y_test), tf.float32))
         return sess.run(acc_tr), sess.run(acc_ts)
 
-    # './mlp/datapoints/[model_name]_[n_hidden]_[n_node].csv'
+    # './mlp/datapoints
+    #   /[model_name]_[n_hidden]_[n_node]_[compact/detailed].csv'
+    postfix = {True: 'compact', False: 'detailed'}
     fmt = '_'.join(['./mlp/datapoints/' + model_name,
                     str(glb.n_hidden), str(glb.n_node) + '.csv'])
 
@@ -275,7 +291,8 @@ def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
             acc_tr, acc_ts = get_acc()
 
             if epoch % intvl_write == 0:
-                write_pts_csv(sess, writer, epoch, W, b, acc_tr, acc_ts)
+                write_pts_csv(compact_plot, sess, writer, epoch, W, b,
+                              acc_tr, acc_ts)
 
             if epoch % intvl_save == 0:
                 saver.save(sess, "./mlp/checkpoints/"+model_name,
@@ -291,7 +308,8 @@ def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
                                                 Y: glb.Y_train[i, None]})
         # Save everything after last epoch
         acc_tr, acc_ts = get_acc()
-        write_pts_csv(sess, writer, glb.n_epoch, W, b, acc_tr, acc_ts)
+        write_pts_csv(compact_plot, sess, writer, glb.n_epoch, W, b,
+                      acc_tr, acc_ts)
         saver.save(sess, "./mlp/checkpoints/"+model_name,
                    global_step = glb.n_epoch)
         print('Session saved.\n')
@@ -301,47 +319,68 @@ def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
 
 
 # Create a header consists of each weight for './mlp/datapoints/*.csv' files
-#   with the following format:
-#   - Weights: 'W[layer #]_[destination neuron #]_[origin neuron #]'
-#   - Bias: 'b[layer #]_[neuron #]
-# Example:
-#   epoch W1_1_1 W1_2_1 W1_3_1 ... training_acc testing_acc
+#   Compact Plot:
+#     Each column is either mean of weights or biases of each layer
+#   Detailed Plot:
+#     Each column is either the value of each individual weight and bias with
+#     with the following format:
+#       Weights: 'W[layer #]_[destination neuron #]_[origin neuron #]'
+#       Bias: 'b[layer #]_[neuron #]
+#       Example:
+#         epoch W1_1_1 W1_2_1 W1_3_1 ... training_acc testing_acc
+# Input:
+#   - @compact_plot: boolean,
+#        flag for whether to plot compact or detailed plot
 # Output:
-#   - a list with column names of the weights
-def get_pts_csv_header():
+#   - a list with column names of the weights, biases, and accuracy
+def get_pts_csv_header(compact_plot):
     # The algorithm might look hedious, and there really isn't an easy way to
     #   explain it soley with comments, but running this snippet line by line
     #   will make it quite obvious.
     csv_header = ['epoch']
-    # Get names for weights in each hidden layers
-    for i in range(glb.n_hidden):
-        # first hidden layer, # of input is # of features
-        if i == 0:
-            n_in = glb.n_feat
-        else:
-            n_in = glb.n_node
-        n_out = glb.n_node
-        # Prefix, i.e., 'W1_' for hidden layer 1, 'W2_' for hidden layer 2, etc
-        pfix = ['W' + str(i+1) + '_'] * (n_in*n_out)
-        # Column indice in the matrix, i.e., '1_' for column 1
-        c = [str(i+1) + '_' for i in range(n_out)] * n_in
-        # Row indice in the matrix, i.e., '1_' for row 1
-        r = [[str(i+1)] * n_out for i in range(n_in)]
-        r = [i for l in r for i in l]   # to flatten the list
-        # Combine prefixes and column & row indice together.
-        csv_header += [a+b+c for a,b,c in zip(pfix,c,r)]
-        # Add biases to the list
-        csv_header += ['b' + str(i+1) + '_' + str(j+1) for j in range(n_out)]
 
-    # Add the names for the final layer
-    csv_header += ['Wout_1_' + str(i+1) for i in range(glb.n_node)]
-    csv_header += ['bout_1']
+    if compact_plot:
+        for i in range(glb.n_hidden):
+            layer =  str(i+1)
+            csv_header += ['W' + layer, 'b' + layer]
+        csv_header += ['Wout']
+        csv_header += ['bout']
+    else:
+        # Get names for weights in each hidden layers
+        for i in range(glb.n_hidden):
+            # first hidden layer, # of input is # of features
+            if i == 0:
+                n_in = glb.n_feat
+            else:
+                n_in = glb.n_node
+            n_out = glb.n_node
+            # Prefix, i.e., 'W1_' for hidden layer 1, 'W2_' for hidden layer 2,
+            #   etc
+            pfix = ['W' + str(i+1) + '_'] * (n_in*n_out)
+            # Column indice in the matrix, i.e., '1_' for column 1
+            c = [str(i+1) + '_' for i in range(n_out)] * n_in
+            # Row indice in the matrix, i.e., '1_' for row 1
+            r = [[str(i+1)] * n_out for i in range(n_in)]
+            r = [i for l in r for i in l]   # to flatten the list
+            # Combine prefixes and column & row indice together.
+            csv_header += [a+b+c for a,b,c in zip(pfix,c,r)]
+            # Add biases to the list
+            csv_header += ['b' + str(i+1) + '_'
+                            + str(j+1) for j in range(n_out)]
+
+        # Add the names for the final layer
+        csv_header += ['Wout_1_' + str(i+1) for i in range(glb.n_node)]
+        csv_header += ['bout_1']
+
     csv_header += ['training_acc', 'testing_acc']
+
     return csv_header
 
 # Write weights, biases, and accuracy to './mlp/datapoints/*.csv' from current
 #   session.
 # Input:
+#   - @compact_plot: boolean
+#        flag for whether to plot compact or detailed plot
 #   - @sess: tf.Session()
 #        Current Tensorflow session.
 #   - @writer: csv.writer
@@ -358,20 +397,34 @@ def get_pts_csv_header():
 #        Testing accuracy of current iteration
 # Output:
 #   - writes line to buffer which will then be stored to the specified file.
-def write_pts_csv(sess, writer, epoch, W, b, acc_tr, acc_ts):
+def write_pts_csv(compact_plot, sess, writer, epoch, W, b, acc_tr, acc_ts):
     line = [epoch]  # Line to be written
-    # For every hidden layer
-    for i in range(glb.n_hidden):
-        layer = 'h' + str(i+1)
-        line += sess.run(W[layer]).flatten().tolist()
-        line += sess.run(b[layer]).flatten().tolist()
-    # Add final layer
-    line += sess.run(W['out']).flatten().tolist()
-    line += sess.run(b['out']).flatten().tolist()
+
+    if(compact_plot):
+        # For every hidden layer
+        for i in range(glb.n_hidden):
+            layer = 'h' + str(i+1)
+            line += [sess.run(W[layer]).flatten().mean(),
+                     sess.run(b[layer]).flatten().mean()]
+        # Add final layer
+        line += [sess.run(W['out']).flatten().mean(),
+                 sess.run(b['out']).flatten().mean()]
+    else:
+        # For every hidden layer
+        for i in range(glb.n_hidden):
+            layer = 'h' + str(i+1)
+            line += [sess.run(W[layer]).flatten().tolist(),
+                     sess.run(b[layer]).flatten().tolist()]
+        # Add final layer
+        line += [sess.run(W['out']).flatten().tolist(),
+                 sess.run(b['out']).flatten().tolist()]
     # Add accuracy, too
     line += [acc_tr, acc_ts]
     writer.writerow(line)
 
+
+def plot_pts_csv():
+    pass
 
 ############################## Testing functions ##############################
 
