@@ -5,12 +5,6 @@ Usage:
 	Change path1 to be the path of your event file, and path2 to be that of players file.
 '''
 
-'''
-TODO:
-	1. Eliminate negative values for time.
-	2. When the result is correct, write to a new CSV file
-'''
-
 path1 = '/Users/fzli/Desktop/ECS/171/Project/' + \
 		'Basketball_data/PlayByPlay_2010/Events_2010.csv'
 path2 = '/Users/fzli/Desktop/ECS/171/Project/' + \
@@ -24,6 +18,9 @@ header = ['player_ID', 'season', 'time', 'n_match', 'miss2_lay', 'reb_off', \
 			'miss2_tip', 'foul_tech']
 
 from readFile import readFile
+
+import os
+import csv
 
 def makeDataCsv():
 	curr = 1
@@ -62,19 +59,26 @@ def makeDataCsv():
 			else:
 				lines[row][2] += int(event[7])
 		else:
+			# The player has been on the field from the beginning
+			if not event[9] in playerID:
+				playerID.append(event[9])
+				start.append(0)
 			column = header.index(event[10])
 			lines[row][column] += 1
 		# Check if it is the last event for a match. Empty playerID and start if it is
-		if curr + 1 == len(events) or events[curr + 1][7] < event[7]:
+		if curr + 1 == len(events) or int(event[7]) > int(events[curr + 1][7]):
 			while playerID:
-				lines[row][2] += int(event[7]) - start[0]
+				lines[int(playerID[0]) - 600001][2] += max(2400, int(event[7])) - start[0]
 				playerID.pop(0)
 				start.pop(0)
 		curr += 1
 
-	print(lines)
-	# TODO
 	# Write to a new csv file
+	if not os.path.isfile('2010_data.csv'):
+		with open('2010_data.csv', 'w') as outcsv:
+			writer = csv.writer(outcsv)
+			writer.writerow(header)
+			writer.writerows(lines)
 
 def main():
 	makeDataCsv()
