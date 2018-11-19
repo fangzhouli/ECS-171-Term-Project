@@ -11,6 +11,7 @@ path2 = root + 'PlayByPlay_2010/Players_2010.csv'
 def readFile(path):
 	with open(path, 'r') as file:
 		reader = csv.reader(file)
+		next(reader)
 		return list(reader)
 
 def main():
