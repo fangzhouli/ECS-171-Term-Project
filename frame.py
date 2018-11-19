@@ -49,6 +49,7 @@ def makeDataCsv():
 		lines.append(line)
 	# Store player ID and initial time of who are playing on the field
 	print("Start processing event file...")
+	hasPlayed = []
 	playerID = []
 	start = []
 	for event in events:
@@ -59,11 +60,15 @@ def makeDataCsv():
 		# If event type is sub_in, record
 		row = int(event[9]) - offset
 		if event[10] == 'sub_in':
+			if not event[9] in hasPlayed:
+				hasPlayed.append(event[9])
 			playerID.append(event[9])
 			start.append(int(event[7]))
 		# If event type is sub_out, check if the player has been recorded
 		elif event[10] == 'sub_out':
 			# Player is recorded, time is the interval
+			if not event[9] in hasPlayed:
+				hasPlayed.append(event[9])
 			if event[9] in playerID:
 				lines[row][2] += int(event[7]) - start.pop(playerID.index(event[9]))
 				playerID.pop(playerID.index(event[9]))
@@ -72,6 +77,8 @@ def makeDataCsv():
 				lines[row][2] += int(event[7])
 		else:
 			# The player has been on the field from the beginning
+			if not event[9] in hasPlayed:
+				hasPlayed.append(event[9])
 			if not event[9] in playerID:
 				playerID.append(event[9])
 				start.append(0)
@@ -79,6 +86,9 @@ def makeDataCsv():
 			lines[row][column] += 1
 		# Check if it is the last event for a match. Empty playerID and start if it is
 		if curr + 1 == len(events) or int(event[7]) > int(events[curr + 1][7]):
+			while hasPlayed:
+				lines[int(hasPlayed[0]) - offset][3] += 1
+				hasPlayed.pop(0)
 			while playerID:
 				lines[int(playerID[0]) - offset][2] += max(2400, int(event[7])) - start[0]
 				playerID.pop(0)
