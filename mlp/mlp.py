@@ -258,14 +258,19 @@ def continue_model(model_name, meta_name,
         print()
 
 
-# Create a header consists of each weight for './mlp/datapoints/*.csv' files.
+# Create a header consists of each weight for './mlp/datapoints/*.csv' files
+#   with the following format:
+#   - Weights: 'W[layer #]_[destination neuron #]_[origin neuron #]'
+#   - Bias: 'b[layer #]_[neuron #]
+# Example:
+#   epoch W1_1_1 W1_2_1 W1_3_1 ... training_acc testing_acc
 # Output:
 #   - a list with column names of the weights
 def get_pts_csv_header():
     # The algorithm might look hedious, and there really isn't an easy way to
-    #   explain it soley with comments, but running this snippet line by line will
-    #   make it quite obvious.
-    csv_header = []
+    #   explain it soley with comments, but running this snippet line by line
+    #   will make it quite obvious.
+    csv_header = ['epoch']
     # Get names for weights in each hidden layers
     for i in range(glb.n_hidden):
         # first hidden layer, # of input is # of features
@@ -290,7 +295,7 @@ def get_pts_csv_header():
     csv_header += ['W' + str(glb.n_hidden + 1) + '_1_'
                     + str(i+1) for i in range(glb.n_node)]
     csv_header += ['b' + str(glb.n_hidden + 1) + '_1']
-
+    csv_header += ['training_acc', 'testing_acc']
     return csv_header
 
 
