@@ -78,9 +78,13 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
 #   - @model_name: str
 #        Prefix of the name of the model's files to be saved in
 #          './mlp/checkpoints' and './mlp/checkpoints/'.
+#   - @intvl_save: int, default 100
+#        Number of epochs to run before saving Tensorflow files
+#   - @intvl_write: int, default 10
+#        Number of epochs to run before saving to './mlp/datapoints/*.csv'
 # Output:
 #   - Tensorflow files saved under './mlp/checkpoints'.
-def new_model(model_name):
+def new_model(model_name, intvl_save=100, intvl_write=10):
     # input and output layers placeholders
     X = tf.placeholder(tf.float32, [None, glb.n_feat], name='X')
     Y = tf.placeholder(tf.float32, [None, 1], name='Y')
@@ -146,7 +150,7 @@ def new_model(model_name):
                                                  glb.Y_test), tf.float32))
         return sess.run(acc_tr), sess.run(acc_ts)
 
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(max_to_keep=None)
 
     # './mlp/datapoints/[model_name]_[n_hidden]_[n_node].csv'
     fmt = '_'.join(['./mlp/datapoints/' + model_name,
@@ -160,18 +164,13 @@ def new_model(model_name):
         for epoch in range(glb.n_epoch):
             acc_tr, acc_ts = get_acc()
 
-            line = [epoch]  # Line to be written
-            # For every hidden layer
-            for i in range(glb.n_hidden):
-                layer = 'h' + str(i+1)
-                line += sess.run(W[layer]).flatten().tolist()
-                line += sess.run(b[layer]).flatten().tolist()
-            # Add final layer
-            line += sess.run(W['out']).flatten().tolist()
-            line += sess.run(b['out']).flatten().tolist()
-            # Add accuracy, too
-            line += [acc_tr, acc_ts]
-            writer.writerow(line)
+            if epoch % intvl_write == 0:
+                write_pts_csv(sess, writer, epoch, W, b, acc_tr, acc_ts)
+
+            if epoch % intvl_save == 0:
+                saver.save(sess, "./mlp/checkpoints/"+model_name,
+                           global_step = epoch)
+                print('Session saved.\n')
 
             print('Epoch', epoch)
             print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
@@ -180,14 +179,15 @@ def new_model(model_name):
             for i in range(glb.X_train.shape[0]):
                 sess.run(train_step, feed_dict={X: glb.X_train[i, None],
                                                 Y: glb.Y_train[i, None]})
-            if epoch % 100 == 0:
-                saver.save(sess, "./mlp/checkpoints/"+model_name,
-                           global_step = epoch)
-                print('Session saved.\n')
-
+        # Save everything after last epoch
+        acc_tr, acc_ts = get_acc()
+        write_pts_csv(sess, writer, glb.n_epoch, W, b, acc_tr, acc_ts)
+        saver.save(sess, "./mlp/checkpoints/"+model_name,
+                   global_step = glb.n_epoch)
+        print('Session saved.\n')
         print('Epoch', glb.n_epoch)
-        print("Accuracy:\nTraining:\t{}\nTesting:\t{}".format(*get_acc()))
-        print()
+        print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
+                                                                acc_ts))
 
 # Load from the lastest model from './mlp/checkpoints/ and continue training'
 # Input:
@@ -314,11 +314,24 @@ def get_pts_csv_header():
         csv_header += ['b' + str(i+1) + '_' + str(j+1) for j in range(n_out)]
 
     # Add the names for the final layer
-    csv_header += ['W' + str(glb.n_hidden + 1) + '_1_'
-                    + str(i+1) for i in range(glb.n_node)]
-    csv_header += ['b' + str(glb.n_hidden + 1) + '_1']
+    csv_header += ['Wout_1_' + str(i+1) for i in range(glb.n_node)]
+    csv_header += ['bout_1']
     csv_header += ['training_acc', 'testing_acc']
     return csv_header
+
+def write_pts_csv(sess, writer, epoch, W, b, acc_tr, acc_ts):
+    line = [epoch]  # Line to be written
+    # For every hidden layer
+    for i in range(glb.n_hidden):
+        layer = 'h' + str(i+1)
+        line += sess.run(W[layer]).flatten().tolist()
+        line += sess.run(b[layer]).flatten().tolist()
+    # Add final layer
+    line += sess.run(W['out']).flatten().tolist()
+    line += sess.run(b['out']).flatten().tolist()
+    # Add accuracy, too
+    line += [acc_tr, acc_ts]
+    writer.writerow(line)
 
 
 ############################## Testing functions ##############################
@@ -328,7 +341,7 @@ def test_new_model():
     # MUST RUN FROM TOP DIRECTORY, I.E. YOU'RE RUNNING THIS SCRIPT USING PATH
     #   './mlp/mlp.py'.
     try:
-        init(10, 10, 2, 100, 9001, filename='./mlp/fake_feature/feature.csv')
+        init(10, 10, 2, 13, 9001, filename='./mlp/fake_feature/feature.csv')
     except Exception as e:
         print(e)
         msg = (
@@ -337,7 +350,7 @@ def test_new_model():
             "'./mlp/mlp.py'. \u001b[0m")
         print(msg)
         exit(0)
-    new_model('fake_model')
+    new_model('fake_model', intvl_save=2, intvl_write=2)
 
 # Assuming 'test_gen()' is invoked beforehand and one single session is saved.
 def test_continue_model():
