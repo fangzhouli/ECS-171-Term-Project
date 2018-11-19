@@ -122,7 +122,7 @@ def new_model(model_name):
                                            .xavier_initializer(seed=glb.seed))
     b['out'] = tf.get_variable('bout', initializer=(tf.zeros([1, 1])
                                                     + glb.init_b))
-    y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y)-1)], W['out'])
+    y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
                              + b['out'])
 
     # Loss function: binary cross entropy with 1e-30 to avoid log(0)
@@ -251,7 +251,7 @@ def continue_model(model_name, meta_name,
         # Output layer construction
         W['out'] = graph.get_tensor_by_name('Wout:0')
         b['out'] = graph.get_tensor_by_name('bout:0')
-        y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y)-1)], W['out'])
+        y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
                               + b['out'])
 
         # Loss function: binary cross entropy with 1e-30 to avoid log(0)
