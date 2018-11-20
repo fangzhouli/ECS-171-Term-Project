@@ -10,8 +10,8 @@ class glb:
     seed = 1234
     df = None       # dataframe
     n_feat = None   # number of features
-    n_node = None   # number of neurals in each hidden layer
     n_hidden = None # number of hidden layers
+    n_node = None   # number of neurals in each hidden layer
     n_epoch = None  # number of training epochs
     n_train = None  # number of rows as training set
     init_b = None   # initial value of bias
@@ -25,10 +25,10 @@ class glb:
 # Input:
 #   - @n_feat: int
 #        Number of features
-#   - @n_node: int
-#        Number of neurons in a hidden layer
 #   - @n_hidden: int
 #        Number of hidden layers
+#   - @n_node: int
+#        Number of neurons in a hidden layer
 #   - @n_epoch: int
 #        Number of epochs
 #   - @n_train: int
@@ -47,7 +47,7 @@ class glb:
 #
 # Output:
 #   - N/A
-def init(n_feat, n_node, n_hidden, n_epoch, n_train, init_b=1.0, r_l=0.1,
+def init(n_feat, n_hidden, n_node, n_epoch, n_train, init_b=1.0, r_l=0.1,
          unkn_Y = False, random=False, filename='feature.csv'):
     # NP settings: print 250 chars/line; no summarization; always print floats
     np.set_printoptions(linewidth=250, threshold=np.nan, suppress=True)
@@ -518,11 +518,11 @@ def write_pts_csv(compact_plot, sess, writer, epoch, W, b, acc_tr, acc_ts):
         # For every hidden layer
         for i in range(glb.n_hidden):
             layer = 'h' + str(i+1)
-            line += [sess.run(W[layer]).flatten().tolist(),
-                     sess.run(b[layer]).flatten().tolist()]
+            line += sess.run(W[layer]).flatten().tolist()
+            line += sess.run(b[layer]).flatten().tolist()
         # Add final layer
-        line += [sess.run(W['out']).flatten().tolist(),
-                 sess.run(b['out']).flatten().tolist()]
+        line += sess.run(W['out']).flatten().tolist()
+        line += sess.run(b['out']).flatten().tolist()
     # Add accuracy, too
     line += [acc_tr, acc_ts]
     writer.writerow(line)
@@ -562,7 +562,7 @@ def test_new_model():
     # MUST RUN FROM TOP DIRECTORY, I.E. YOU'RE RUNNING THIS SCRIPT USING PATH
     #   './mlp/mlp.py'.
     try:
-        init(10, 10, 2, 13, 9001, filename='./mlp/fake_feature/feature.csv')
+        init(10, 2, 10, 13, 9001, filename='./mlp/fake_feature/feature.csv')
     except Exception as e:
         print(e)
         msg = (
@@ -575,7 +575,7 @@ def test_new_model():
 
 # Assuming 'test_gen()' is invoked beforehand and left off at epoch 13
 def test_continue_model():
-    init(10, 10, 2, 26, 9001, filename='./mlp/fake_feature/feature.csv')
+    init(10, 2, 10, 26, 9001, filename='./mlp/fake_feature/feature.csv')
     continue_model('fake_model', 'fake_model-13', 14,
                    intvl_save=2, intvl_write=2, intvl_print=1)
 
