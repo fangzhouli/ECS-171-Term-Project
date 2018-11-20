@@ -91,6 +91,8 @@ def init(n_feat, n_node, n_hidden, n_epoch, n_train, init_b=1.0, r_l=0.1,
 #        Number of epochs to run before saving Tensorflow files
 #   - @intvl_write: int, default 10
 #        Number of epochs to run before saving to './mlp/datapoints/*.csv'
+#   - @intvl_print: int, default 10
+#        Number of epochs to run before printing accuracy
 #   - @compact_plot: boolean, default True
 #        flag for whether to plot compact or detailed plot; the difference
 #        between a compact and a detailed plot is that former contains mean of
@@ -98,7 +100,8 @@ def init(n_feat, n_node, n_hidden, n_epoch, n_train, init_b=1.0, r_l=0.1,
 #        value of every single weight.
 # Output:
 #   - Tensorflow files saved under './mlp/checkpoints'.
-def new_model(model_name, intvl_save=100, intvl_write=10, compact_plot=True):
+def new_model(model_name, intvl_save=100, intvl_write=10, intvl_print=10,
+              compact_plot=True):
     # input and output layers placeholders
     X = tf.placeholder(tf.float32, [None, glb.n_feat], name='X')
     Y = tf.placeholder(tf.float32, [None, 1], name='Y')
@@ -151,19 +154,6 @@ def new_model(model_name, intvl_save=100, intvl_write=10, compact_plot=True):
     train_step = (tf.train.GradientDescentOptimizer(glb.r_l)
                   .minimize(cross_entropy))
     init = tf.global_variables_initializer()
-
-    # Get training and testing accuracy
-    def get_acc():
-        # Compute training accuracy
-        Y_pred_tr = sess.run(y['out'], feed_dict={X: glb.X_train})
-        acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr),
-                                                 glb.Y_train), tf.float32))
-        # Compute testing accuracy
-        Y_pred_ts = sess.run(y['out'], feed_dict={X: glb.X_test})
-        acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts),
-                                                 glb.Y_test), tf.float32))
-        return sess.run(acc_tr), sess.run(acc_ts)
-
     saver = tf.train.Saver(max_to_keep=None)
 
     # './mlp/datapoints
@@ -177,9 +167,10 @@ def new_model(model_name, intvl_save=100, intvl_write=10, compact_plot=True):
         writer = csv.writer(f)
         writer.writerow(get_pts_csv_header(compact_plot))
         for epoch in range(glb.n_epoch):
-            acc_tr, acc_ts = get_acc()
+            acc_tr, acc_ts = None, None # reset
 
             if epoch % intvl_write == 0:
+                acc_tr, acc_ts = get_acc(sess, X, Y, y)
                 write_pts_csv(compact_plot, sess, writer, epoch, W, b,
                               acc_tr, acc_ts)
 
@@ -188,23 +179,24 @@ def new_model(model_name, intvl_save=100, intvl_write=10, compact_plot=True):
                            global_step = epoch)
                 print('Session saved.\n')
 
-            print('Epoch', epoch)
-            print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
-                                                                    acc_ts))
+            if epoch % intvl_print == 0:
+                # calculate accuracy if it there was no write in this epoch
+                if acc_tr or acc_ts is None:
+                    acc_tr, acc_ts = get_acc(sess, X, Y, y)
+                print_acc(epoch, acc_tr, acc_ts)
+
             # for every sample
             for i in range(glb.X_train.shape[0]):
                 sess.run(train_step, feed_dict={X: glb.X_train[i, None],
                                                 Y: glb.Y_train[i, None]})
         # Save everything after last epoch
-        acc_tr, acc_ts = get_acc()
+        acc_tr, acc_ts = get_acc(sess, X, Y, y)
         write_pts_csv(compact_plot, sess, writer, glb.n_epoch, W, b,
                       acc_tr, acc_ts)
         saver.save(sess, "./mlp/checkpoints/"+model_name,
                    global_step = glb.n_epoch)
         print('Session saved.\n')
-        print('Epoch', glb.n_epoch)
-        print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
-                                                                acc_ts))
+        print_acc(glb.n_epoch, acc_tr, acc_ts)
 
 # Load from the lastest model from './mlp/checkpoints/ and continue training'
 # Input:
@@ -222,6 +214,8 @@ def new_model(model_name, intvl_save=100, intvl_write=10, compact_plot=True):
 #        Number of epochs to run before saving Tensorflow files
 #   - @intvl_write: int, default 10
 #        Number of epochs to run before saving to './mlp/datapoints/*.csv'
+#   - @intvl_print: int, default 10
+#        Number of epochs to run before printing accuracy
 #   - @model_path: str, default './mlp/checkpoints/'
 #        Path to the checkpoint directory.
 #   - @compact_plot: boolean, default True
@@ -231,31 +225,19 @@ def new_model(model_name, intvl_save=100, intvl_write=10, compact_plot=True):
 #        value of every single weight.
 # Output:
 #   - Tensorflow files saved under './mlp/checkpoints'.
-def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
-                   intvl_write=10, model_path='./mlp/checkpoints/',
-                   compact_plot = True):
+def continue_model(model_name, meta_name, epoch_start,
+                   intvl_save=100, intvl_write=10, intvl_print=10,
+                   model_path='./mlp/checkpoints/', compact_plot = True):
     # Weights, biases, and output function
     W = {}
     b = {}
     y = {}
 
-    # Get training and testing accuracy
-    def get_acc():
-        # Compute training accuracy
-        Y_pred_tr = sess.run(y['out'], feed_dict={X: glb.X_train})
-        acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr),
-                                                 glb.Y_train), tf.float32))
-        # Compute testing accuracy
-        Y_pred_ts = sess.run(y['out'], feed_dict={X: glb.X_test})
-        acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts),
-                                                 glb.Y_test), tf.float32))
-        return sess.run(acc_tr), sess.run(acc_ts)
-
     # './mlp/datapoints
     #   /[model_name]_[n_hidden]_[n_node]_[compact/detailed].csv'
     postfix = {True: 'compact', False: 'detailed'}
-    fmt = '_'.join(['./mlp/datapoints/' + model_name,
-                    str(glb.n_hidden), str(glb.n_node) + '.csv'])
+    fmt = '_'.join(['./mlp/datapoints/' + model_name, str(glb.n_hidden),
+                    str(glb.n_node), postfix[compact_plot] + '.csv'])
 
     with tf.Session() as sess, open(fmt, 'a') as f:
         writer = csv.writer(f)
@@ -297,9 +279,10 @@ def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
                       .minimize(cross_entropy))
 
         for epoch in range(epoch_start, glb.n_epoch):
-            acc_tr, acc_ts = get_acc()
+            acc_tr, acc_ts = None, None # reset
 
             if epoch % intvl_write == 0:
+                acc_tr, acc_ts = get_acc(sess, X, Y, y)
                 write_pts_csv(compact_plot, sess, writer, epoch, W, b,
                               acc_tr, acc_ts)
 
@@ -308,23 +291,24 @@ def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
                            global_step = epoch)
                 print('Session saved.\n')
 
-            print('Epoch', epoch)
-            print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
-                                                                    acc_ts))
+            if epoch % intvl_print == 0:
+                # calculate accuracy if it there was no write in this epoch
+                if acc_tr or acc_ts is None:
+                    acc_tr, acc_ts = get_acc(sess, X, Y, y)
+                print_acc(epoch, acc_tr, acc_ts)
+
             # for every sample
             for i in range(glb.X_train.shape[0]):
                 sess.run(train_step, feed_dict={X: glb.X_train[i, None],
                                                 Y: glb.Y_train[i, None]})
         # Save everything after last epoch
-        acc_tr, acc_ts = get_acc()
+        acc_tr, acc_ts = get_acc(sess, X, Y, y)
         write_pts_csv(compact_plot, sess, writer, glb.n_epoch, W, b,
                       acc_tr, acc_ts)
         saver.save(sess, "./mlp/checkpoints/"+model_name,
                    global_step = glb.n_epoch)
         print('Session saved.\n')
-        print('Epoch', glb.n_epoch)
-        print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
-                                                                acc_ts))
+        print_acc(glb.n_epoch, acc_tr, acc_ts)
 
 # Load from the lastest model from 'model_path' and make predictions on 'X'.
 #   Accuracy will be given if 'Y' is not None.
@@ -389,6 +373,44 @@ def predict_from_model(model_name, meta_name, mtx_in, mtx_rst,
     tf.reset_default_graph()
 
     return Y_pred
+
+# Get training and testing accuracy
+# Input:
+#   -@sess: tf.Session()
+#       The current session
+#   -@X: tf.placeholder
+#       Input placeholder
+#   -@Y: tf.placeholder
+#       Output placeholder
+#   -@y: list
+#       The list of output functions
+def get_acc(sess, X, Y, y):
+    # Compute training accuracy
+    Y_pred_tr = sess.run(y['out'], feed_dict={X: glb.X_train})
+    acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr),
+                                             glb.Y_train), tf.float32))
+    # Compute testing accuracy
+    Y_pred_ts = sess.run(y['out'], feed_dict={X: glb.X_test})
+    acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts),
+                                             glb.Y_test), tf.float32))
+    return sess.run(acc_tr), sess.run(acc_ts)
+
+# Print accuracy
+# Input:
+#   -@epoch: int
+#       The current epoch
+#   -@acc_tr: float
+#       Calculated training accuracy
+#   -@acc_ts: float
+#       Calculated testing accuracy
+# Output:
+#   - Printed accuracy
+def print_acc(epoch, acc_tr, acc_ts):
+    print('Epoch', epoch)
+    print("Accuracy:")
+    print("Training:\t{:.2f}".format(acc_tr))
+    print("Testing:\t{:.2f}".format(acc_ts))
+
 
 # Create a header consists of each weight for './mlp/datapoints/*.csv' files
 #   Compact Plot:
@@ -538,13 +560,13 @@ def test_new_model():
             "'./mlp/mlp.py'. \u001b[0m")
         print(msg)
         exit(0)
-    new_model('fake_model', intvl_save=2, intvl_write=2)
+    new_model('fake_model', intvl_save=2, intvl_write=2, intvl_print=1)
 
 # Assuming 'test_gen()' is invoked beforehand and left off at epoch 13
 def test_continue_model():
     init(10, 10, 2, 26, 9001, filename='./mlp/fake_feature/feature.csv')
     continue_model('fake_model', 'fake_model-13', 14,
-                   intvl_save=2, intvl_write=2)
+                   intvl_save=2, intvl_write=2, intvl_print=1)
 
 # Test 'test_predict_from_model()' using generated data
 #   './mlp/fake_feature/input_*.csv'
