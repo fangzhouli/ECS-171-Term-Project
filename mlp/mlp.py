@@ -13,7 +13,7 @@ class glb:
     n_node = None   # number of neurals in each hidden layer
     n_hidden = None # number of hidden layers
     n_epoch = None  # number of training epochs
-    id_2018 = None  # sampleID of the 1st row of 2018's matches in the dataset.
+    n_train = None  # number of rows as training set
     init_b = None   # initial value of bias
     r_l = None      # learning rate
     X_train = None  # Training inputs
@@ -31,12 +31,15 @@ class glb:
 #        Number of hidden layers
 #   - @n_epoch: int
 #        Number of epochs
-#   - @id_2018: int
-#        sampleID of the 1st row of 2018's matches in the dataset.
+#   - @n_train: int
+#        number of rows from the beginning to be used as the training set.
 #   - @init_b: float, default 1.0
 #        Initial value of biases
 #   - @r_l: float, default 0.1
 #        Learning rate
+#   - @unkn_Y: boolean, default False
+#        flag to indicate whether Y is known, i.e., if there's an actual result
+#        column.
 #   - @random: boolean, default False
 #        Flag for whether to randomize the rows.
 #   - @filename: str, default 'feature.csv'
@@ -44,8 +47,8 @@ class glb:
 #
 # Output:
 #   - N/A
-def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
-         init_b=1.0, r_l=0.1, random=False, filename='feature.csv'):
+def init(n_feat, n_node, n_hidden, n_epoch, n_train, init_b=1.0, r_l=0.1,
+         unkn_Y = False, random=False, filename='feature.csv'):
     # NP settings: print 250 chars/line; no summarization; always print floats
     np.set_printoptions(linewidth=250, threshold=np.nan, suppress=True)
     df = pd.read_csv(filename, header=0, sep=',', index_col=0)
@@ -57,7 +60,7 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
     glb.n_node = n_node
     glb.n_hidden = n_hidden
     glb.n_epoch = n_epoch
-    glb.id_2018 = id_2018
+    glb.n_train = n_train
     glb.init_b = init_b
     glb.r_l = r_l
     # Normalize features
@@ -66,12 +69,18 @@ def init(n_feat, n_node, n_hidden, n_epoch, id_2018,
                           /df.iloc[:, i].std())
     glb.df = df
     # Split data
-    X = glb.df.iloc[:, 0:glb.n_feat].values
-    Y = glb.df.iloc[:, glb.n_feat:].values
-    glb.X_train = X[0:glb.id_2018,]
-    glb.X_test = X[glb.id_2018:,]
-    glb.Y_train = Y[0:glb.id_2018,]
-    glb.Y_test = Y[glb.id_2018:,]
+    X = glb.df.iloc[:, 0:n_feat].values
+    glb.X_train = X[0:n_train,]
+    glb.X_test = X[n_train: ,]
+
+    # Assign them if we do have actual results
+    if unkn_Y == False:
+        Y = glb.df.iloc[:, n_feat:].values
+        glb.Y_train = Y[0:n_train,]
+        glb.Y_test = Y[n_train:,]
+    else:
+        glb.Y_train = None
+        glb.Y_test = None
 
 # Create a new model through training with data from 2011~2017
 # Input:
@@ -317,6 +326,69 @@ def continue_model(model_name, meta_name, epoch_start, intvl_save=100,
         print("Accuracy:\nTraining:\t{}\nTesting:\t{}\n".format(acc_tr,
                                                                 acc_ts))
 
+# Load from the lastest model from 'model_path' and make predictions on 'X'.
+#   Accuracy will be given if 'Y' is not None.
+# Input:
+#   - @model_name: str
+#        Prefix of the name of the model's file to be saved in 'ckpt_path'
+#   - @meta_name: str
+#        Prefix of the '.meta' file to be loaded.
+#        E.X.: 'model-100' if the '.meta' file is named 'model-100.meta'
+#   - @mtx_in: np.matrix
+#        Matrix with input features
+#   - @mtx_rst: np.matrix
+#        1-D np.matrix with actual output. None if Y is unknown
+#   - @ckpt_path: str, default './mlp/checkpoints/'
+#        Path to the checkpoint directory.
+# Output:
+#   - prediction matrix from the model
+def predict_from_model(model_name, meta_name, mtx_in, mtx_rst,
+                       ckpt_path='./mlp/checkpoints/'):
+    # Weights, biases, and output function
+    W = {}
+    b = {}
+    y = {}
+
+    with tf.Session() as sess:
+        saver = tf.train.import_meta_graph(ckpt_path + meta_name + '.meta')
+        saver.restore(sess, tf.train.latest_checkpoint(ckpt_path))
+        graph = tf.get_default_graph()
+
+        # input and output layers placeholders
+        X = graph.get_tensor_by_name('X:0')
+        Y = graph.get_tensor_by_name('Y:0')
+
+        # Hidden layers construction
+        for i in range(glb.n_hidden):
+            layer = 'h' + str(i+1)
+            W[layer] = graph.get_tensor_by_name('W' + str(i+1) + ':0')
+            b[layer] = graph.get_tensor_by_name('b' + str(i+1) + ':0')
+
+            # Hidden layer 1: Input is X
+            if i == 0:
+                y[layer] = tf.nn.sigmoid(tf.matmul(X, W[layer]) + b[layer])
+            # Other hidden layers: connect from its previous layer y[layer-1]
+            else:
+                prev_layer = 'h'+str(i)
+                y[layer] = tf.nn.sigmoid(tf.matmul(y[prev_layer], W[layer])
+                                         + b[layer])
+
+        # Output layer construction
+        W['out'] = graph.get_tensor_by_name('Wout:0')
+        b['out'] = graph.get_tensor_by_name('bout:0')
+        y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
+                              + b['out'])
+
+        Y_pred = (sess.run(y['out'], feed_dict={X: glb.X_test})).round()
+
+        if mtx_rst is not None:
+            acc = tf.reduce_mean(tf.cast(tf.equal(Y_pred,glb.Y_test),
+                                         tf.float32))
+            print('Accuracy:', sess.run(acc))
+
+    tf.reset_default_graph()
+
+    return Y_pred
 
 # Create a header consists of each weight for './mlp/datapoints/*.csv' files
 #   Compact Plot:
@@ -473,3 +545,21 @@ def test_continue_model():
     init(10, 10, 2, 26, 9001, filename='./mlp/fake_feature/feature.csv')
     continue_model('fake_model', 'fake_model-13', 14,
                    intvl_save=2, intvl_write=2)
+
+# Test 'test_predict_from_model()' using generated data
+#   './mlp/fake_feature/input_*.csv'
+def test_predict_from_model():
+    # Test with known actual results
+    init(10, 10, 2, 26, 9001, unkn_Y = False,
+         filename='./mlp/fake_feature/input_with_wincol.csv')
+    mtx_kn = predict_from_model('fake_model', 'fake_model-14',
+                                glb.X_test, glb.Y_test,
+                                ckpt_path='./mlp/checkpoints/')
+
+    # Test with unknown actual results
+    init(10, 10, 2, 26, 9001, unkn_Y = True,
+         filename='./mlp/fake_feature/input_no_wincol.csv')
+    mtx_ukn = predict_from_model('fake_model', 'fake_model-14',
+                                 glb.X_test, None,
+                                 ckpt_path='./mlp/checkpoints/')
+    assert(np.all(mtx_ukn == mtx_kn))
