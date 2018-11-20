@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import csv
+import os
+import sys
 
 # Global variables
 class glb:
@@ -228,10 +230,47 @@ def new_model(model_name, intvl_save=100, intvl_write=10, intvl_print=10,
 def continue_model(model_name, meta_name, epoch_start,
                    intvl_save=100, intvl_write=10, intvl_print=10,
                    model_path='./mlp/checkpoints/', compact_plot = True):
+    # Resume from the checkpoint
+    saver = tf.train.import_meta_graph(model_path + meta_name + '.meta')
+    graph = tf.get_default_graph()
+
+    # input and output layers placeholders
+    X = graph.get_tensor_by_name('X:0')
+    Y = graph.get_tensor_by_name('Y:0')
+
     # Weights, biases, and output function
     W = {}
     b = {}
     y = {}
+
+    # Hidden layers construction
+    for i in range(glb.n_hidden):
+        layer = 'h' + str(i+1)
+        W[layer] = graph.get_tensor_by_name('W' + str(i+1) + ':0')
+        b[layer] = graph.get_tensor_by_name('b' + str(i+1) + ':0')
+
+        # Hidden layer 1: Input is X
+        if i == 0:
+            y[layer] = tf.nn.sigmoid(tf.matmul(X, W[layer]) + b[layer])
+        # Other hidden layers: connect from its previous layer y[layer-1]
+        else:
+            prev_layer = 'h'+str(i)
+            y[layer] = tf.nn.sigmoid(tf.matmul(y[prev_layer], W[layer])
+                                     + b[layer])
+
+    # Output layer construction
+    W['out'] = graph.get_tensor_by_name('Wout:0')
+    b['out'] = graph.get_tensor_by_name('bout:0')
+    y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
+                          + b['out'])
+
+    # Loss function: binary cross entropy with 1e-30 to avoid log(0)
+    cross_entropy = -tf.reduce_sum(Y * tf.log(y['out']+1e-30)
+                                   + (1-Y) * tf.log(1-y['out']+1e-30),
+                                   reduction_indices=[1])
+    # Back-propagation
+    train_step = (tf.train.GradientDescentOptimizer(glb.r_l)
+                  .minimize(cross_entropy))
 
     # './mlp/datapoints
     #   /[model_name]_[n_hidden]_[n_node]_[compact/detailed].csv'
@@ -240,43 +279,8 @@ def continue_model(model_name, meta_name, epoch_start,
                     str(glb.n_node), postfix[compact_plot] + '.csv'])
 
     with tf.Session() as sess, open(fmt, 'a') as f:
-        writer = csv.writer(f)
-        saver = tf.train.import_meta_graph(model_path + meta_name + '.meta')
         saver.restore(sess, tf.train.latest_checkpoint(model_path))
-        graph = tf.get_default_graph()
-
-        # input and output layers placeholders
-        X = graph.get_tensor_by_name('X:0')
-        Y = graph.get_tensor_by_name('Y:0')
-
-        # Hidden layers construction
-        for i in range(glb.n_hidden):
-            layer = 'h' + str(i+1)
-            W[layer] = graph.get_tensor_by_name('W' + str(i+1) + ':0')
-            b[layer] = graph.get_tensor_by_name('b' + str(i+1) + ':0')
-
-            # Hidden layer 1: Input is X
-            if i == 0:
-                y[layer] = tf.nn.sigmoid(tf.matmul(X, W[layer]) + b[layer])
-            # Other hidden layers: connect from its previous layer y[layer-1]
-            else:
-                prev_layer = 'h'+str(i)
-                y[layer] = tf.nn.sigmoid(tf.matmul(y[prev_layer], W[layer])
-                                         + b[layer])
-
-        # Output layer construction
-        W['out'] = graph.get_tensor_by_name('Wout:0')
-        b['out'] = graph.get_tensor_by_name('bout:0')
-        y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
-                              + b['out'])
-
-        # Loss function: binary cross entropy with 1e-30 to avoid log(0)
-        cross_entropy = -tf.reduce_sum(Y * tf.log(y['out']+1e-30)
-                                       + (1-Y) * tf.log(1-y['out']+1e-30),
-                                       reduction_indices=[1])
-        # Back-propagation
-        train_step = (tf.train.GradientDescentOptimizer(glb.r_l)
-                      .minimize(cross_entropy))
+        writer = csv.writer(f)
 
         for epoch in range(epoch_start, glb.n_epoch):
             acc_tr, acc_ts = None, None # reset
