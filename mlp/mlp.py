@@ -423,8 +423,32 @@ def write_pts_csv(compact_plot, sess, writer, epoch, W, b, acc_tr, acc_ts):
     writer.writerow(line)
 
 
-def plot_pts_csv():
-    pass
+# Plot the weights and accruacy of a .csv file in './mlp/datapoints/' and save
+#   the plots under './mlp/plots/'
+# Input:
+#   - filepath: str
+#       path to the .csv file to be plotted.
+#       E.X.: './mlp/datapoints/fake_model_2_10_compact.csv'
+# Output:
+#   - plots saved under './mlp/plots/'
+def plot_pts_csv(filepath):
+    df = pd.read_csv(filepath, header=0, sep=',', index_col=0)
+    ncol = df.shape[1]
+    w = df.iloc[:, 0:(ncol-2)]
+    acc = df.iloc[:, [-2 ,-1]]
+    # Get file name
+    name = filepath.split('/')[-1]
+    name = name.split('.')[0]
+
+    # Save weight plot
+    plt.figure()
+    w.plot()
+    plt.legend(loc='upper left')
+    plt.savefig('./mlp/plots/' + name + '_weights.png')
+    # Save accuracy plot
+    acc.plot()
+    plt.legend(loc='upper left')
+    plt.savefig('./mlp/plots/' + name + '_accuracy.png')
 
 ############################## Testing functions ##############################
 
