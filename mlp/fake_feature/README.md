@@ -1,6 +1,6 @@
-# ./mlp/fake\_feature
+# /mlp/fake\_feature
 
-A directory with fake datasets that are used for testing './mlp/mlp.py'
+This is a directory with fake datasets that are used for testing `/mlp/mlp.py`
 
 # Files
 
