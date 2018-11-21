@@ -168,42 +168,9 @@ def new_model(model_name, intvl_save=100, intvl_write=10, intvl_print=10,
         sess.run(init)
         writer = csv.writer(f)
         writer.writerow(get_pts_csv_header(compact_plot))
-        print()
-        print("Epoch\tTraining   Testing")
-        print("Number\tAccuracy   Accuracy")
-        for epoch in range(glb.n_epoch):
-            acc_tr, acc_ts = None, None # reset
-
-            if epoch % intvl_write == 0:
-                acc_tr, acc_ts = get_acc(sess, X, Y, y)
-                write_pts_csv(compact_plot, sess, writer, epoch, W, b,
-                              acc_tr, acc_ts)
-
-            if epoch % intvl_print == 0:
-                # calculate accuracy if it there was no write in this epoch
-                if acc_tr or acc_ts is None:
-                    acc_tr, acc_ts = get_acc(sess, X, Y, y)
-                print_acc(epoch, acc_tr, acc_ts)
-
-            if epoch % intvl_save == 0:
-                saver.save(sess, "./mlp/checkpoints/"+model_name,
-                           global_step = epoch)
-                print("\u001B[33m#### Session Saved @ epoch "
-                      "{} ####\u001b[0m".format(epoch))
-
-            # for every sample
-            for i in range(glb.X_train.shape[0]):
-                sess.run(train_step, feed_dict={X: glb.X_train[i, None],
-                                                Y: glb.Y_train[i, None]})
-        # Save everything after last epoch
-        acc_tr, acc_ts = get_acc(sess, X, Y, y)
-        write_pts_csv(compact_plot, sess, writer, glb.n_epoch, W, b,
-                      acc_tr, acc_ts)
-        print_acc(glb.n_epoch, acc_tr, acc_ts)
-        saver.save(sess, "./mlp/checkpoints/"+model_name,
-                   global_step = glb.n_epoch)
-        print("\u001B[33m#### Session Saved @ epoch "
-              "{} ####\u001b[0m".format(glb.n_epoch))
+        train_model(model_name, 0, sess, saver, train_step, writer,
+                    X, Y, W, b, y, intvl_write, intvl_print, intvl_save,
+                    compact_plot)
 
 
 # Load from the lastest model from './mlp/checkpoints/ and continue training'
@@ -285,44 +252,11 @@ def continue_model(model_name, meta_name, epoch_start,
                     str(glb.n_node), postfix[compact_plot] + '.csv'])
 
     with tf.Session() as sess, open(fmt, 'a') as f:
-        saver.restore(sess, tf.train.latest_checkpoint(model_path))
         writer = csv.writer(f)
-        print()
-        print("Epoch\tTraining   Testing")
-        print("Number\tAccuracy   Accuracy")
-        for epoch in range(epoch_start, glb.n_epoch):
-            acc_tr, acc_ts = None, None # reset
-
-            if epoch % intvl_write == 0:
-                acc_tr, acc_ts = get_acc(sess, X, Y, y)
-                write_pts_csv(compact_plot, sess, writer, epoch, W, b,
-                              acc_tr, acc_ts)
-
-            if epoch % intvl_print == 0:
-                # calculate accuracy if it there was no write in this epoch
-                if acc_tr or acc_ts is None:
-                    acc_tr, acc_ts = get_acc(sess, X, Y, y)
-                print_acc(epoch, acc_tr, acc_ts)
-
-            if epoch % intvl_save == 0:
-                saver.save(sess, "./mlp/checkpoints/"+model_name,
-                           global_step = epoch)
-                print("\u001B[33m#### Session Saved @ epoch "
-                      "{} ####\u001b[0m".format(epoch))
-
-            # for every sample
-            for i in range(glb.X_train.shape[0]):
-                sess.run(train_step, feed_dict={X: glb.X_train[i, None],
-                                                Y: glb.Y_train[i, None]})
-        # Save everything after last epoch
-        acc_tr, acc_ts = get_acc(sess, X, Y, y)
-        write_pts_csv(compact_plot, sess, writer, glb.n_epoch, W, b,
-                      acc_tr, acc_ts)
-        print_acc(glb.n_epoch, acc_tr, acc_ts)
-        saver.save(sess, "./mlp/checkpoints/"+model_name,
-                   global_step = glb.n_epoch)
-        print("\u001B[33m#### Session Saved @ epoch "
-              "{} ####\u001b[0m".format(glb.n_epoch))
+        saver.restore(sess, tf.train.latest_checkpoint(model_path))
+        train_model(model_name, 0, sess, saver, train_step, writer,
+                    X, Y, W, b, y, intvl_write, intvl_print, intvl_save,
+                    compact_plot)
 
 # Load from the lastest model from 'model_path' and make predictions on 'X'.
 #   Accuracy will be given if 'Y' is not None.
@@ -387,6 +321,48 @@ def predict_from_model(model_name, meta_name, mtx_in, mtx_rst,
     tf.reset_default_graph()
 
     return Y_pred
+
+def train_model(model_name, epoch_start, sess, saver, train_step, writer,
+                X, Y, W, b, y, intvl_write, intvl_print, intvl_save,
+                compact_plot):
+
+    print()
+    print("Epoch\tTraining   Testing")
+    print("Number\tAccuracy   Accuracy")
+    for epoch in range(epoch_start, glb.n_epoch):
+        acc_tr, acc_ts = None, None # reset
+
+        if epoch % intvl_write == 0:
+            acc_tr, acc_ts = get_acc(sess, X, Y, y)
+            write_pts_csv(compact_plot, sess, writer, epoch, W, b,
+                          acc_tr, acc_ts)
+
+        if epoch % intvl_print == 0:
+            # calculate accuracy if it there was no write in this epoch
+            if acc_tr or acc_ts is None:
+                acc_tr, acc_ts = get_acc(sess, X, Y, y)
+            print_acc(epoch, acc_tr, acc_ts)
+
+        if epoch % intvl_save == 0:
+            saver.save(sess, "./mlp/checkpoints/"+model_name,
+                       global_step = epoch)
+            print("\u001B[33m#### Session Saved @ epoch "
+                  "{} ####\u001b[0m".format(epoch))
+
+        # for every sample
+        for i in range(glb.X_train.shape[0]):
+            sess.run(train_step, feed_dict={X: glb.X_train[i, None],
+                                            Y: glb.Y_train[i, None]})
+    # Save everything after last epoch
+    acc_tr, acc_ts = get_acc(sess, X, Y, y)
+    write_pts_csv(compact_plot, sess, writer, glb.n_epoch, W, b,
+                  acc_tr, acc_ts)
+    print_acc(glb.n_epoch, acc_tr, acc_ts)
+    saver.save(sess, "./mlp/checkpoints/"+model_name,
+               global_step = glb.n_epoch)
+    print("\u001B[33m#### Session Saved @ epoch "
+          "{} ####\u001b[0m".format(glb.n_epoch))
+
 
 # Get training and testing accuracy
 # Input:
