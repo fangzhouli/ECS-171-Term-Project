@@ -5,7 +5,17 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import csv
 
+
 def plot_pts_csv(filepath):
+    """ Plot the weights and accruacy of a datapoint .csv file
+
+        The plot will be saved under './mlp/plots/'
+
+    Input:
+      - filepath: str
+          path to the .csv file to be plotted.
+          E.X.: './mlp/datapoints/fake_model_2_10_compact.csv'
+    """
     df = pd.read_csv(filepath, header=0, sep=',', index_col=0)
     ncol = df.shape[1]
     w = df.iloc[:, 0:(ncol-2)]
@@ -24,11 +34,51 @@ def plot_pts_csv(filepath):
     plt.legend(loc='upper left')
     plt.savefig('./mlp/plots/' + name + '_accuracy.png')
 
+
 class Mlp(object):
     def __init__(self, model_name, n_feat, n_hidden, n_node, n_epoch, n_train,
-                 filename='feature.csv', init_b=1.0, r_l=0.1, unkn_Y = False,
-                 random=False, intvl_save=100, intvl_write=10, intvl_print=10,
+                 filename='feature.csv', init_b=1.0, r_l=0.1, random=False,
+                 intvl_save=100, intvl_write=10, intvl_print=10,
                  compact_plot=True, seed = 1234):
+        """ Initialization of MLP attributes
+        Input:
+          - @model_name: str
+               Prefix of the name of the model's files to be saved in
+                 './mlp/checkpoints' and './mlp/checkpoints/'.
+          - @n_feat: int
+               Number of features
+          - @n_hidden: int
+               Number of hidden layers
+          - @n_node: int
+               Number of neurons in a hidden layer
+          - @n_epoch: int
+               Number of epochs
+          - @n_train: int
+               Number of rows from the beginning to be used as the training
+                 set.
+          - @filename: str, default 'feature.csv'
+               Name of the file that contains the dataset
+          - @init_b: float, default 1.0
+               Initial value of biases
+          - @r_l: float, default 0.1
+               Learning rate
+          - @random: boolean, default False
+               Flag for whether to randomize the rows.
+          - @intvl_save: int, default 100
+               Number of epochs to run before saving Tensorflow files
+          - @intvl_write: int, default 10
+               Number of epochs to run before saving to
+                 './mlp/datapoints/*.csv'
+          - @intvl_print: int, default 10
+               Number of epochs to run before printing accuracy
+          - @compact_plot: boolean, default True
+               Flag for whether to plot compact or detailed plot; the
+                 difference between a compact and a detailed plot is that
+                 former contains mean of each layer's weights and biases and
+                 the latter contains individual value of every single weight.
+          - @seed: int, default 1234
+               Seed for RNGs to provide reproducibility.
+        """
         # NP settings: print 250 chars/line; no summarization; always floats
         np.set_printoptions(linewidth=250, threshold=np.nan, suppress=True)
         # To supress Tensorflow from printing INFO
@@ -36,7 +86,7 @@ class Mlp(object):
         df = pd.read_csv(filename, header=0, sep=',', index_col=0)
         # Randomize rows
         if(random):
-            df = df.sample(frac=1, random_state=self.seed)
+            df = df.sample(frac=1, random_state=seed)
             df = df.reset_index(drop = True)
         self.model_name = model_name
         self.n_feat = n_feat
@@ -65,7 +115,9 @@ class Mlp(object):
         self.Y_train = Y[0:n_train,]
         self.Y_test = Y[n_train:,]
 
+
     def new_model(self):
+        """ Construct main MLP structure from class attributes """
         # input and output layers placeholders
         X = tf.placeholder(tf.float32, [None, self.n_feat], name='X')
         Y = tf.placeholder(tf.float32, [None, 1], name='Y')
@@ -126,7 +178,16 @@ class Mlp(object):
         self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver(max_to_keep=None)
 
+
     def continue_model(self, meta_name, model_path='./mlp/checkpoints/'):
+        """ Load from the lastest checkpoint from 'model_path'
+        Input:
+          - @meta_name: str
+               Prefix of the '.meta' file to be loaded.
+               E.X.: 'model-100' if the '.meta' file is named 'model-100.meta'
+          - @model_path: str, default './mlp/checkpoints/'
+               Path to the checkpoint directory.
+        """
         # Resume from the checkpoint
         self.saver = tf.train.import_meta_graph(model_path
                                                 + meta_name + '.meta')
@@ -180,7 +241,19 @@ class Mlp(object):
         self.sess = tf.Session()
         self.saver.restore(self.sess, tf.train.latest_checkpoint(model_path))
 
+
     def predict(self, mtx_in, mtx_rst=None):
+        """ Make predictions on 'X' with current model.
+
+            Accuracy will also be printed given if 'mtx_rst' is not None.
+        Input:
+          - @mtx_in: np.matrix
+               The input matrix
+          - @mtx_rst: np.matrix, default None
+               1-D np.matrix with actual output.
+        Returns:
+          - 1-D matrix with prediction using the model
+        """
         Y_pred = self.sess.run(self.y['out'], feed_dict={self.X: mtx_in})
         Y_pred = Y_pred.round()
 
@@ -191,7 +264,15 @@ class Mlp(object):
 
         return Y_pred
 
+
     def train_model(self, epoch_start):
+        """ Train the current model with loaded dataset.
+        Input:
+          - @epoch_start: int
+               Start epoch; in most cases, it should be 1 plus the epoch of the
+                  model to be loaded, so 'epoch_start' should be 301 if the
+                 model to beloaded was saved at epoch 300.
+        """
         # './mlp/datapoints
         #   /[model_name]_[n_hidden]_[n_node]_[compact/detailed].csv'
         postfix = {True: 'compact', False: 'detailed'}
@@ -238,7 +319,12 @@ class Mlp(object):
             print("\u001B[33m#### Session Saved @ epoch "
                   "{} ####\u001b[0m".format(self.n_epoch))
 
+
     def get_acc(self):
+        """Get training and testing accuracy
+        Returns:
+          - Training and testing accruacy rounded to 2 decimal places
+        """
         # Compute training accuracy
         Y_pred_tr = self.sess.run(self.y['out'], feed_dict={self.X: self.X_train})
         acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr),
@@ -249,8 +335,31 @@ class Mlp(object):
                                                  self.Y_test), tf.float32))
         return self.sess.run(acc_tr), self.sess.run(acc_ts)
 
-    def get_pts_csv_header(self):
 
+    def get_pts_csv_header(self):
+        """ Create column names for writting the './mlp/datapoints/*.csv'
+
+        A compact or detailed plot will be created depends on the value of
+          'self.compact_plot'. All plots will start with 'epoch' as their first
+           column and 'training_acc' and 'testing_acc' as their last two
+          columns, but other columns will be different:
+
+        Compact Plot:
+          Each column is the mean of either weights or biases of each layer
+
+        Detailed Plot:
+          Each column is the value of each individual weight and bias with the
+            following format:
+
+            Weights: 'W[layer #]_[destination neuron #]_[origin neuron #]'
+            Bias: 'b[layer #]_[neuron #]
+
+            Example:
+              epoch W1_1_1 W1_2_1 W1_3_1 ... training_acc testing_acc
+
+        Returns:
+          - A list with column names of the weights, biases, and accuracy
+        """
         csv_header = ['epoch']
 
         if self.compact_plot:
@@ -290,7 +399,22 @@ class Mlp(object):
 
         return csv_header
 
+
     def write_pts_csv(self, writer, epoch, acc_tr, acc_ts):
+        """
+        Write weights, biases, and accuracy to './mlp/datapoints/*.csv' from
+          current session.
+        Input:
+          - @writer: csv.writer
+               csv writer created for the desinated file
+          - @epoch: int
+               current epoch
+          - @acc_tr:
+               Training accruacy of current iteration
+          - @acc_ts:
+               Testing accuracy of current iteration
+        """
+
         line = [epoch]  # Line to be written
 
         if(self.compact_plot):
