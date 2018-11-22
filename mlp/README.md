@@ -1,10 +1,16 @@
 # /mlp
 
-A directory with everything related to using multi layer perceptrons for binary classification for this project, including construction, training, testing, and plotting, using Tensorflow.
+A directory with everything related to using multi layer perceptrons for binary classification for this project using Tensorflow package, including construction, training, testing, and plotting.
 
-Description of each sub-directory is in `README.md` under each directory, and
-a copy is also provided in the end of this file.
+Description of each sub-directory is in `README.md` under its directory, and
+a copy of directory descriptions is also provided in the end of this file.
 
+**Important: Must be run from (or have default working directory set to) the top directory, i.e., you get the following when you type the command in shell:**
+
+    $ pwd
+    /[YOUR_DIRECTORY_PATH]/ECS-171-Group-Project
+    $ ls
+    data.csv  dataframe.py  frame.py  images_RM  mlp  readFile.py
 
 ## /mlp/mlp.py
 
@@ -14,7 +20,7 @@ a copy is also provided in the end of this file.
 hidden layers, training epochs, rows from the dataset to use as the training
 set.
 
-- Save Tensorflow graphs and variables as both Tensorflow checkpoint files.
+- Save Tensorflow graphs and variables as Tensorflow checkpoint files.
 
 - Save weights, biases, and training & testing accuracy in CSV format
 
@@ -24,8 +30,9 @@ set.
 
 - Load previously saved model and make prediction
 
+- Grid search on multiple CSIF computers simultaneously
 
-### Example: ./mlp/fake\_feature/feature.csv
+### Example: /mlp/fake\_feature/feature.csv
 
 This example uses a randomly generated dataset with 10K rows and that has the following columns:
 
@@ -33,14 +40,22 @@ This example uses a randomly generated dataset with 10K rows and that has the fo
 
 As shown here, the dataset has 10 input features and a binary output. In this
 example, we will train a binary classification MLP with 2 hidden layers and 10
-neurons in each. First, we initialize the attributes with
+neurons in each. First, we make sure we are in the top directory
 
+    $ pwd
+    /[YOUR_DIRECTORY_PATH]/ECS-171-Group-Project
+    $ ls
+    data.csv  dataframe.py  frame.py  images_RM  mlp  readFile.py
 
+We can then import the module and initialize the attributes with
+
+    >>> python
+    >>> from mlp.mlp import *
     >>> m1 = Mlp('fake_model', 10, 2, 10, 13, 9000,
     ...          filename='./mlp/fake_feature/feature.csv',
     ...          intvl_save=4, intvl_write=2, intvl_print=1)
 
-This is the same as
+The last command is the same as
 
     >>> m1 = Mlp(model_name='fake_model', n_feat=10, n_hidden=2, n_node=10,
     ...          n_epoch=13, n_train=9000,
@@ -48,7 +63,7 @@ This is the same as
     ...          r_l=0.1, random=False, intvl_save=4, intvl_write=2,
     ...          intvl_print=1, compact_plot=True, seed = 1234)
 
-Then, we can construct the model from scratch by
+Then, we can construct the model from scratch with
 
     >>> m1.new_model()
 
@@ -78,11 +93,8 @@ Now we can start training with
     13	0.92	   0.91
     #### Session Saved @ epoch 13 ####
 
-Since we have `intvl_save=2, intvl_write=2, intvl_print=1`, model is saved with
-Tensorflow files every 2 epochs, weights, biases, and accuracy are saved in
-CSV format every 2 epochs, and training & testing accuracy is printed every 1
-epoch. By default, Tensorflow files are saved under `/mlp/checkpoints/` and
-CSV files are saved under './datapoints/'.
+Since we have `intvl_save=2, intvl_write=2, intvl_print=1`, model is saved as
+Tensorflow checkpoint files every 2 epochs; weights, biases, and accuracy are saved in CSV format every 2 epochs; and training & testing accuracy is printed every 1 epoch. By default, Tensorflow checkpoint files are saved under `/mlp/checkpoints/` and CSV files are saved under `/mlp/datapoints/`.
 
 Now let's say we've exited the program and want to continue training from where
 we saved last time to have a total of 26 epochs. We can use `continue_model()`:
@@ -115,8 +127,8 @@ we saved last time to have a total of 26 epochs. We can use `continue_model()`:
 
 *Note: This only works with starting from the latest checkpoint. To continue
 from other checkpoints, "model\_checkpoint\_path" and
-"all\_model\_checkpoint\_paths" in `./mlp/checkpoints/checkpoint` have to be
-set to the corresponding checkpoint file.*
+"all\_model\_checkpoint\_paths" in `/mlp/checkpoints/checkpoint` have to be
+set to the corresponding checkpoint filename.*
 
 Now that we are finished training, we can plot the weights and accuracy saved
 in the CSV file under `/mlp/datapoints` with
@@ -124,12 +136,21 @@ in the CSV file under `/mlp/datapoints` with
     >>> plot_pts_csv('./mlp/datapoints/fake_model_2_10_compact.csv')
 
 and the plots for accuracy and mean weights (shown below) can be found under
-`./mlp/plots/` after running all of the code above.
+`/mlp/plots/` after running all of the code above.
 
 ![acc](/images_RM/fake_model_2_10_compact_accuracy.png)
 
 ![wgt](/images_RM/fake_model_2_10_compact_weights.png)
 
+
+### Parallel Grid Search
+
+A grid search that covers from 1 to 3 layers and 10 to 25 neurons with a step
+of 5 can be done with `parallel_csif_grid_search()` which invokes 12 instances
+of terminals that connect to CSIF simultaneously and perform new model
+construction code above. This function requires user to have done two things
+beforehand. One is to have the reposotory cloned on the CSIF computer, and two
+is to have setup keyless login (see `https://bit.ly/2DS9IAN`).
 
 ## Sub-directories
 
