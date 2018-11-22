@@ -4,12 +4,71 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import csv
+from os import system
+
+
+def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
+                              pathToDir, pathToDataset, pc=None):
+    """ Run a grid search on 12 CSIF computers simultaneously
+
+    Grid search covers from 1 ~ 3 layers and 10 ~ 25 neurons with a step of 5.
+
+    Before using this function, two things have to be done:
+
+        1. Have Repository cloned on a CSIF computer
+
+        2. Have setup keyless login. See 'https://bit.ly/2DS9IAN'
+
+    Input:
+      - @model_name: str
+           Name of the model
+      - @username: str
+           CSIF username
+      - @n_epoch: int
+           Number of epochs to train.
+      - @n_train: int
+           Number of rows from the beginning to be used as the training set.
+      - @pathToDir: str
+           Path to the cloned reposotory. It should be something like this
+           '/home/mtimzh/ECS-171-Group-Project'
+      - @pathToDataset: str
+           Path to the dataset.
+           E.x.: './mlp/fake_feature/feature.csv'
+      - @pc: list of str, default None
+           A list of pc that you want to use. If None, pc 40~51 will be used.
+           E.x.: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']
+    """
+
+    layers = [str(i+1) for i in range(0,3)] # 1 to 3 layers
+    neurons = [str(i) for i in range(10, 26, 5)] # 10~25 neurons with step of 5
+
+    if pc is None:
+        pc = [str(i) for i in range(40, 52)] # 12 PCs, from pc40~51
+    i = 0 # counter for 'pc'
+
+    for layer in layers:
+        for neuron in neurons:
+            # [model_name]_[layer]_[neuron]
+            m_name = "_".join([model_name, layer, neuron])
+            py_script = ("from mlp.mlp import *; "
+                         "m1 = Mlp('" + m_name + "', 10, " + layer + ", "
+                             + neuron + ", " + str(n_epoch) + ", " +
+                             str(n_train) + ", filename='" + pathToDataset + 
+                             "', intvl_save=4, intvl_write=2, intvl_print=1); "
+                         "m1.new_model(); "
+                         "m1.train_model(epoch_start=0)")
+            cmd = ("ssh " + username + "@pc" + pc[i] + ".cs.ucdavis.edu "
+                   "\\\"cd " + pathToDir + " && "
+                   "python3 -c \\\\\\\"" + py_script + "\\\\\\\"\\\"")
+            system("xterm -e \"" + cmd + "; $SHELL\" &")
+            i += 1
+
 
 
 def plot_pts_csv(filepath):
     """ Plot the weights and accruacy of a datapoint .csv file
 
-        The plot will be saved under './mlp/plots/'
+        The plot will be saved under '/mlp/plots/'
 
     Input:
       - filepath: str
@@ -44,7 +103,7 @@ class Mlp(object):
         Input:
           - @model_name: str
                Prefix of the name of the model's files to be saved in
-                 './mlp/checkpoints' and './mlp/checkpoints/'.
+                 '/mlp/checkpoints' and '/mlp/checkpoints/'.
           - @n_feat: int
                Number of features
           - @n_hidden: int
@@ -68,7 +127,7 @@ class Mlp(object):
                Number of epochs to run before saving Tensorflow files
           - @intvl_write: int, default 10
                Number of epochs to run before saving to
-                 './mlp/datapoints/*.csv'
+                 '/mlp/datapoints/*.csv'
           - @intvl_print: int, default 10
                Number of epochs to run before printing accuracy
           - @compact_plot: boolean, default True
@@ -129,7 +188,7 @@ class Mlp(object):
 
         # Hidden layers construction
         for i in range(self.n_hidden):
-            # hidden Layer 1: # of inputs (aka # of rows) has to be # of features
+            # hidden Layer 1: # of inputs (aka # of rows) == # of features
             if i == 0:
                 n_in = self.n_feat
             else:
@@ -154,7 +213,8 @@ class Mlp(object):
         # Output layer construction
         W['out'] = tf.get_variable('Wout', shape=[self.n_node, 1],
                                    initializer=tf.contrib.layers
-                                               .xavier_initializer(seed=self.seed))
+                                               .xavier_initializer(
+                                                  seed=self.seed))
         b['out'] = tf.get_variable('bout', initializer=(tf.zeros([1, 1])
                                                         + self.init_b))
         y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
@@ -276,8 +336,10 @@ class Mlp(object):
         # './mlp/datapoints
         #   /[model_name]_[n_hidden]_[n_node]_[compact/detailed].csv'
         postfix = {True: 'compact', False: 'detailed'}
-        fmt = '_'.join(['./mlp/datapoints/' + self.model_name, str(self.n_hidden),
-                        str(self.n_node), postfix[self.compact_plot] + '.csv'])
+        fmt = '_'.join(['./mlp/datapoints/' + self.model_name,
+                        str(self.n_hidden),
+                        str(self.n_node),
+                        postfix[self.compact_plot] + '.csv'])
 
         with open(fmt, 'a') as f:
             writer = csv.writer(f)
@@ -298,18 +360,21 @@ class Mlp(object):
                     # calculate accuracy if it there was no write in this epoch
                     if acc_tr or acc_ts is None:
                         acc_tr, acc_ts = self.get_acc()
-                    print("{}\t{:.2f}\t   {:.2f}".format(epoch, acc_tr, acc_ts))
+                    print("{}\t{:.2f}\t   {:.2f}".format(epoch,
+                                                         acc_tr, acc_ts))
 
                 if epoch % self.intvl_save == 0:
-                    self.saver.save(self.sess, "./mlp/checkpoints/"+self.model_name,
-                               global_step = epoch)
+                    self.saver.save(self.sess,
+                                    "./mlp/checkpoints/" + self.model_name,
+                                    global_step = epoch)
                     print("\u001B[33m#### Session Saved @ epoch "
                           "{} ####\u001b[0m".format(epoch))
 
                 # for every sample
                 for i in range(self.X_train.shape[0]):
-                    self.sess.run(self.train_step, feed_dict={self.X: self.X_train[i, None],
-                                                    self.Y: self.Y_train[i, None]})
+                    self.sess.run(self.train_step,
+                                  feed_dict={self.X: self.X_train[i, None],
+                                             self.Y: self.Y_train[i, None]})
             # Save everything after last epoch
             acc_tr, acc_ts = self.get_acc()
             self.write_pts_csv(writer, self.n_epoch, acc_tr, acc_ts)
@@ -326,18 +391,20 @@ class Mlp(object):
           - Training and testing accruacy rounded to 2 decimal places
         """
         # Compute training accuracy
-        Y_pred_tr = self.sess.run(self.y['out'], feed_dict={self.X: self.X_train})
+        Y_pred_tr = self.sess.run(self.y['out'],
+                                  feed_dict={self.X: self.X_train})
         acc_tr = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_tr),
                                                  self.Y_train), tf.float32))
         # Compute testing accuracy
-        Y_pred_ts = self.sess.run(self.y['out'], feed_dict={self.X: self.X_test})
+        Y_pred_ts = self.sess.run(self.y['out'],
+                                  feed_dict={self.X: self.X_test})
         acc_ts = tf.reduce_mean(tf.cast(tf.equal(tf.round(Y_pred_ts),
                                                  self.Y_test), tf.float32))
         return self.sess.run(acc_tr), self.sess.run(acc_ts)
 
 
     def get_pts_csv_header(self):
-        """ Create column names for writting the './mlp/datapoints/*.csv'
+        """ Create column names for writting the '/mlp/datapoints/*.csv'
 
         A compact or detailed plot will be created depends on the value of
           'self.compact_plot'. All plots will start with 'epoch' as their first
@@ -377,8 +444,8 @@ class Mlp(object):
                 else:
                     n_in = self.n_node
                 n_out = self.n_node
-                # Prefix, i.e., 'W1_' for hidden layer 1, 'W2_' for hidden layer 2,
-                #   etc
+                # Prefix, i.e., 'W1_' for hidden layer 1, 'W2_' for hidden
+                #    layer 2, etc
                 pfix = ['W' + str(i+1) + '_'] * (n_in*n_out)
                 # Column indice in the matrix, i.e., '1_' for column 1
                 c = [str(i+1) + '_' for i in range(n_out)] * n_in
@@ -402,7 +469,7 @@ class Mlp(object):
 
     def write_pts_csv(self, writer, epoch, acc_tr, acc_ts):
         """
-        Write weights, biases, and accuracy to './mlp/datapoints/*.csv' from
+        Write weights, biases, and accuracy to '/mlp/datapoints/*.csv' from
           current session.
         Input:
           - @writer: csv.writer
