@@ -148,9 +148,18 @@ and the plots for accuracy and mean weights (shown below) can be found under
 A grid search that covers from 1 to 3 layers and 10 to 25 neurons with a step
 of 5 can be done with `parallel_csif_grid_search()` which invokes 12 instances
 of terminals that connect to CSIF simultaneously and perform new model
-construction code above. This function requires user to have done two things
-beforehand. One is to have the reposotory cloned on the CSIF computer, and two
-is to have setup keyless login (see `https://bit.ly/2DS9IAN`).
+construction code above. **This function requires user to have done the
+following three things beforehand in order for it to work:**
+
+1. Have the repository cloned onto a CSIF computer
+
+2. Have setup keyless login. See 'https://goo.gl/9xFJTA'
+
+3. Make sure the computers that are going to be used are functional.
+   Check 'https://goo.gl/fa7jS7' for which CSIF computers are up.
+
+After finishing these tasks, see more details in `mlp/mlp.py` for descriptions
+for input arguments.
 
 ## Sub-directories
 
