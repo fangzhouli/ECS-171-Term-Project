@@ -12,12 +12,16 @@ def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
     """ Run a grid search on 12 CSIF computers simultaneously
 
     Grid search covers from 1 ~ 3 layers and 10 ~ 25 neurons with a step of 5.
+    It is users' responsibility to make sure
 
-    Before using this function, two things have to be done:
+    Before using this function, Three things have to be done:
 
-        1. Have Repository cloned on a CSIF computer
+        1. Have the repository cloned onto a CSIF computer
 
-        2. Have setup keyless login. See 'https://bit.ly/2DS9IAN'
+        2. Have setup keyless login. See 'https://goo.gl/9xFJTA'
+
+        3. Make sure the computers that are going to be used are functional.
+           Check 'https://goo.gl/fa7jS7' for which CSIF computers are up.
 
     Input:
       - @model_name: str
@@ -53,16 +57,17 @@ def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
             py_script = ("from mlp.mlp import *; "
                          "m1 = Mlp('" + m_name + "', 10, " + layer + ", "
                              + neuron + ", " + str(n_epoch) + ", " +
-                             str(n_train) + ", filename='" + pathToDataset + 
+                             str(n_train) + ", filename='" + pathToDataset +
                              "', intvl_save=4, intvl_write=2, intvl_print=1); "
                          "m1.new_model(); "
                          "m1.train_model(epoch_start=0)")
             cmd = ("ssh " + username + "@pc" + pc[i] + ".cs.ucdavis.edu "
                    "\\\"cd " + pathToDir + " && "
-                   "python3 -c \\\\\\\"" + py_script + "\\\\\\\"\\\"")
-            system("xterm -e \"" + cmd + "; $SHELL\" &")
+                   "python3 -uc \\\\\\\"" + py_script + "\\\\\\\"\\\"")
+            msg = "# of layers: {}\n# of neurons: {}".format(layer, neuron)
+            system("xterm -e \"echo \\\"" + msg +  "\\\"; " + cmd
+                         + "; $SHELL\" &")
             i += 1
-
 
 
 def plot_pts_csv(filepath):
