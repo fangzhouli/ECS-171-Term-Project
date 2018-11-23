@@ -7,12 +7,15 @@ import csv
 from os import system
 
 
-def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
-                              pathToDir, pathToDataset, pc=None):
+def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
+                              n_epoch, n_train, pathToDataset='feature.csv',
+                              init_b=1.0, r_l=0.1, random=False,
+                              intvl_save=100, intvl_write=10, intvl_print=10,
+                              compact_plot=True, seed = 1234):
+
     """ Run a grid search on 12 CSIF computers simultaneously
 
     Grid search covers from 1 ~ 3 layers and 10 ~ 25 neurons with a step of 5.
-    It is users' responsibility to make sure
 
     Before using this function, Three things have to be done:
 
@@ -24,23 +27,45 @@ def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
            Check 'https://goo.gl/fa7jS7' for which CSIF computers are up.
 
     Input:
-      - @model_name: str
-           Name of the model
       - @username: str
            CSIF username
+      - @pc: list of str, default None
+           A list of pc that you want to use. If None, pc 40~51 will be used.
+           E.x.: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']
+      - @pathToDir: str
+           Path to the cloned reposotory. It should be something like this
+           '/home/mtimzh/ECS-171-Group-Project'
+      - @model_name: str
+           Name of the model
+      - @n_feat: int
+           Number of features
       - @n_epoch: int
            Number of epochs to train.
       - @n_train: int
            Number of rows from the beginning to be used as the training set.
-      - @pathToDir: str
-           Path to the cloned reposotory. It should be something like this
-           '/home/mtimzh/ECS-171-Group-Project'
-      - @pathToDataset: str
+      - @pathToDataset: str, default 'feature.csv'
            Path to the dataset.
            E.x.: './mlp/fake_feature/feature.csv'
-      - @pc: list of str, default None
-           A list of pc that you want to use. If None, pc 40~51 will be used.
-           E.x.: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']
+      - @init_b: float, default 1.0
+           Initial value of biases
+      - @r_l: float, default 0.1
+           Learning rate
+      - @random: boolean, default False
+           Flag for whether to randomize the rows.
+      - @intvl_save: int, default 100
+           Number of epochs to run before saving Tensorflow files
+      - @intvl_write: int, default 10
+           Number of epochs to run before saving to
+             '/mlp/datapoints/*.csv'
+      - @intvl_print: int, default 10
+           Number of epochs to run before printing accuracy
+      - @compact_plot: boolean, default True
+           Flag for whether to plot compact or detailed plot; the
+             difference between a compact and a detailed plot is that
+             former contains mean of each layer's weights and biases and
+             the latter contains individual value of every single weight.
+      - @seed: int, default 1234
+           Seed for RNGs to provide reproducibility.
     """
 
     layers = [str(i+1) for i in range(0,3)] # 1 to 3 layers
@@ -52,14 +77,17 @@ def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
 
     for layer in layers:
         for neuron in neurons:
+            args = ", ".join(["'" + model_name + "'", str(n_feat), layer,
+                              neuron, str(n_epoch), str(n_train),
+                              "'" + pathToDataset + "'", str(init_b), str(r_l),
+                              str(random), str(intvl_save), str(intvl_write),
+                              str(intvl_print), str(compact_plot), str(seed)])
 
             py_script = ("from mlp.mlp import *; "
-                         "m1 = Mlp('" + model_name + "', 10, " + layer + ", "
-                             + neuron + ", " + str(n_epoch) + ", " +
-                             str(n_train) + ", filename='" + pathToDataset +
-                             "', intvl_save=4, intvl_write=2, intvl_print=1); "
+                         "m1 = Mlp(" + args + "); "
                          "m1.new_model(); "
                          "m1.train_model(epoch_start=0)")
+
             cmd = ("ssh " + username + "@pc" + pc[i] + ".cs.ucdavis.edu "
                    "\\\"cd " + pathToDir + " && "
                    "python3 -uc \\\\\\\"" + py_script + "\\\\\\\"\\\"")
@@ -102,7 +130,7 @@ def plot_pts_csv(filepath):
 
 class Mlp(object):
     def __init__(self, model_name, n_feat, n_hidden, n_node, n_epoch, n_train,
-                 filename='feature.csv', init_b=1.0, r_l=0.1, random=False,
+                 pathToDataset='feature.csv', init_b=1.0, r_l=0.1, random=False,
                  intvl_save=100, intvl_write=10, intvl_print=10,
                  compact_plot=True, seed = 1234):
         """ Initialization of MLP attributes
@@ -121,8 +149,8 @@ class Mlp(object):
           - @n_train: int
                Number of rows from the beginning to be used as the training
                  set.
-          - @filename: str, default 'feature.csv'
-               Name of the file that contains the dataset
+          - @pathToDataset: str, default 'feature.csv'
+               Path to the file that contains the dataset
           - @init_b: float, default 1.0
                Initial value of biases
           - @r_l: float, default 0.1
@@ -148,7 +176,7 @@ class Mlp(object):
         np.set_printoptions(linewidth=250, threshold=np.nan, suppress=True)
         # To supress Tensorflow from printing INFO
         tf.logging.set_verbosity(tf.logging.ERROR)
-        df = pd.read_csv(filename, header=0, sep=',', index_col=0)
+        df = pd.read_csv(pathToDataset, header=0, sep=',', index_col=0)
         # Randomize rows
         if(random):
             df = df.sample(frac=1, random_state=seed)
