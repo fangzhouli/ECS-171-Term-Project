@@ -52,10 +52,9 @@ def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
 
     for layer in layers:
         for neuron in neurons:
-            # [model_name]_[layer]_[neuron]
-            m_name = "_".join([model_name, layer, neuron])
+
             py_script = ("from mlp.mlp import *; "
-                         "m1 = Mlp('" + m_name + "', 10, " + layer + ", "
+                         "m1 = Mlp('" + model_name + "', 10, " + layer + ", "
                              + neuron + ", " + str(n_epoch) + ", " +
                              str(n_train) + ", filename='" + pathToDataset +
                              "', intvl_save=4, intvl_write=2, intvl_print=1); "
@@ -64,7 +63,9 @@ def parallel_csif_grid_search(model_name, username, n_epoch, n_train,
             cmd = ("ssh " + username + "@pc" + pc[i] + ".cs.ucdavis.edu "
                    "\\\"cd " + pathToDir + " && "
                    "python3 -uc \\\\\\\"" + py_script + "\\\\\\\"\\\"")
-            msg = "# of layers: {}\n# of neurons: {}".format(layer, neuron)
+            msg = "pc: {}\n# of layers: {}\n# of neurons: {}".format(pc[i],
+                                                                     layer,
+                                                                     neuron)
             system("xterm -e \"echo \\\"" + msg +  "\\\"; " + cmd
                          + "; $SHELL\" &")
             i += 1
@@ -369,8 +370,10 @@ class Mlp(object):
                                                          acc_tr, acc_ts))
 
                 if epoch % self.intvl_save == 0:
-                    self.saver.save(self.sess,
-                                    "./mlp/checkpoints/" + self.model_name,
+                    m_name = "_".join([self.model_name,
+                                       str(self.n_hidden),
+                                       str(self.n_node)])
+                    self.saver.save(self.sess, "./mlp/checkpoints/" + m_name,
                                     global_step = epoch)
                     print("\u001B[33m#### Session Saved @ epoch "
                           "{} ####\u001b[0m".format(epoch))
@@ -384,8 +387,11 @@ class Mlp(object):
             acc_tr, acc_ts = self.get_acc()
             self.write_pts_csv(writer, self.n_epoch, acc_tr, acc_ts)
             print("{}\t{:.2f}\t   {:.2f}".format(self.n_epoch, acc_tr, acc_ts))
-            self.saver.save(self.sess, "./mlp/checkpoints/"+self.model_name,
-                       global_step = self.n_epoch)
+            m_name = "_".join([self.model_name,
+                               str(self.n_hidden),
+                               str(self.n_node)])
+            self.saver.save(self.sess, "./mlp/checkpoints/" + m_name,
+                            global_step = self.n_epoch)
             print("\u001B[33m#### Session Saved @ epoch "
                   "{} ####\u001b[0m".format(self.n_epoch))
 
