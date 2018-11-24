@@ -7,11 +7,73 @@ import csv
 from os import system
 
 
+def plot_compact_from_detailed(filepath, n_hidden=None):
+    """ Plot a compact from a *_detailed.csv
+
+        If the file to be read in follows the format of
+        '[model name]_[# of hidden layers]_[# of neurons]_detailed.csv',
+        argument 'n_hidden' can be set to None and will be taken from the
+        filename.
+
+        Input:
+          - @filepath: str
+               Path to the *_detailed.csv file.
+          - @n_hidden: int, default None
+               Number of hidden layers. If None, it will be taken from the
+               filename.
+    """
+
+    df_csv = pd.read_csv(filepath, header=0, sep=',', index_col=None)
+
+    # Take from filename
+    if n_hidden is None:
+        n_hidden = int(filepath.split('_')[-3])
+
+    vec = [['W'+str(i+1), 'b'+str(i+1)] for i in range(n_hidden)]
+    # Column names for weights and biases columns
+    colnames = [ itm for lst in vec for itm in lst]
+    # add output layers
+    colnames = colnames + ['Wout', 'bout']
+
+    df =pd.DataFrame(columns= ['epoch'] + colnames
+                               + ['training_acc', 'testing_acc'])
+    df['epoch'] = df_csv['epoch']
+    df['training_acc'] = df_csv['training_acc']
+    df['testing_acc'] = df_csv['testing_acc']
+
+    for col in colnames:
+        df[col] = (df_csv.iloc[:, df_csv.columns.str.contains(col) == True]
+                     .mean(axis=1))
+    df = df.set_index('epoch')
+
+    ncol = df.shape[1]
+    w = df.iloc[:, 0:(ncol-2)]
+    acc = df.iloc[:, [-2 ,-1]]
+    # Get file name
+    name = filepath.split('/')[-1]  # fake_model_2_10_detailed.csv
+
+    # filename does not follow the format of *detailed.csv
+    if name.find('detailed.csv') < 0:
+        name = name.replace('.csv', 'compact')
+    else:
+        name = name.replace('detailed.csv', 'compact')
+
+    # Save weight plot
+    plt.figure()
+    w.plot()
+    plt.legend(loc='upper left')
+    plt.savefig('./mlp/plots/' + name + '_weights.png')
+    # Save accuracy plot
+    acc.plot()
+    plt.legend(loc='upper left')
+    plt.savefig('./mlp/plots/' + name + '_accuracy.png')
+
+
 def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
                               n_epoch, n_train, pathToDataset='feature.csv',
                               init_b=1.0, r_l=0.1, random=False,
                               intvl_save=100, intvl_write=10, intvl_print=10,
-                              compact_plot=True, seed = 1234):
+                              compact_plot=True, seed=1234, max_to_keep=None):
 
     """ Run a grid search on 12 CSIF computers simultaneously
 
@@ -81,7 +143,8 @@ def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
                               neuron, str(n_epoch), str(n_train),
                               "'" + pathToDataset + "'", str(init_b), str(r_l),
                               str(random), str(intvl_save), str(intvl_write),
-                              str(intvl_print), str(compact_plot), str(seed)])
+                              str(intvl_print), str(compact_plot), str(seed),
+                              str(max_to_keep)])
 
             py_script = ("from mlp.mlp import *; "
                          "m1 = Mlp(" + args + "); "
@@ -130,9 +193,9 @@ def plot_pts_csv(filepath):
 
 class Mlp(object):
     def __init__(self, model_name, n_feat, n_hidden, n_node, n_epoch, n_train,
-                 pathToDataset='feature.csv', init_b=1.0, r_l=0.1, random=False,
-                 intvl_save=100, intvl_write=10, intvl_print=10,
-                 compact_plot=True, seed = 1234):
+                 pathToDataset='feature.csv', init_b=1.0, r_l=0.1,
+                 random=False, intvl_save=100, intvl_write=10, intvl_print=10,
+                 compact_plot=True, seed = 1234, max_to_keep=None):
         """ Initialization of MLP attributes
         Input:
           - @model_name: str
@@ -171,6 +234,9 @@ class Mlp(object):
                  the latter contains individual value of every single weight.
           - @seed: int, default 1234
                Seed for RNGs to provide reproducibility.
+          - @max_to_keep: int, default None
+               Maximum number of Tensorflow checkpoint files to keep. If sets
+                 to 'None', there's no limit.
         """
         # NP settings: print 250 chars/line; no summarization; always floats
         np.set_printoptions(linewidth=250, threshold=np.nan, suppress=True)
@@ -194,6 +260,7 @@ class Mlp(object):
         self.intvl_print = intvl_print
         self.compact_plot = compact_plot
         self.seed = seed
+        self.max_to_keep = max_to_keep
         # Normalize features
         for i in range(n_feat):
             df.iloc[:, i] = ((df.iloc[:, i] - df.iloc[:, i].mean())
@@ -270,7 +337,7 @@ class Mlp(object):
         self.train_step = train_step
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
-        self.saver = tf.train.Saver(max_to_keep=None)
+        self.saver = tf.train.Saver(max_to_keep=self.max_to_keep)
 
 
     def continue_model(self, meta_name, model_path='./mlp/checkpoints/'):
