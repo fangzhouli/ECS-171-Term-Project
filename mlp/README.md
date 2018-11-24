@@ -52,14 +52,14 @@ We can then import the module and initialize the attributes with
     >>> python
     >>> from mlp.mlp import *
     >>> m1 = Mlp('fake_model', 10, 2, 10, 13, 9000,
-    ...          filename='./mlp/fake_feature/feature.csv',
+    ...          pathToDataset='./mlp/fake_feature/feature.csv',
     ...          intvl_save=4, intvl_write=2, intvl_print=1)
 
 The last command is the same as
 
     >>> m1 = Mlp(model_name='fake_model', n_feat=10, n_hidden=2, n_node=10,
     ...          n_epoch=13, n_train=9000,
-    ...          filename='./mlp/fake_feature/feature.csv', init_b=1.0,
+    ...          pathToDataset='./mlp/fake_feature/feature.csv', init_b=1.0,
     ...          r_l=0.1, random=False, intvl_save=4, intvl_write=2,
     ...          intvl_print=1, compact_plot=True, seed = 1234)
 
@@ -96,8 +96,14 @@ Now we can start training with
 Since we have `intvl_save=2, intvl_write=2, intvl_print=1`, model is saved as
 Tensorflow checkpoint files every 2 epochs; weights, biases, and accuracy are saved in CSV format every 2 epochs; and training & testing accuracy is printed every 1 epoch. By default, Tensorflow checkpoint files are saved under `/mlp/checkpoints/` and CSV files are saved under `/mlp/datapoints/`.
 
-Now let's say we've exited the program and want to continue training from where
-we saved last time to have a total of 26 epochs. We can use `continue_model()`:
+If we decide to continue training to have a total of 26 epochs. We can use `continue_model()`:
+
+    >>> m1.n_epoch = 26   # set new number of epochs
+    >>> m1.continue_model('fake_model-13')
+    >>> m1.train_model(epoch_start=14)
+
+Now let's say we've exited the program, then we will have to form the structure
+again:
 
     >>> m2 = Mlp('fake_model', 10, 2, 10, 26, 9000,
     ...          filename='./mlp/fake_feature/feature.csv',
