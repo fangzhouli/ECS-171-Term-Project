@@ -16,7 +16,7 @@ header = ['player_ID', 'season', 'time', 'n_match', 'miss2_lay', 'reb_off', \
 			'reb_def', 'foul_pers', 'miss1_free', 'made1_free', 'miss3_jump', \
 			'turnover', 'sub_out', 'steal', 'made2_dunk', 'timeout_tv', \
 			'made2_lay', 'timeout', 'reb_dead', 'made2_tip', 'miss2_dunk', \
-			'miss2_tip', 'foul_tech']
+			'miss2_tip', 'foul_tech', 'name']
 
 from readFile import readFile
 
@@ -30,7 +30,7 @@ def makeDataCsv():
 	print("Start reading CSV files...")
 	events = []
 	players = []
-	for i in range(8):
+	for i in range(9):
 		year = 2010 + i
 		print("File " + str(year) + '...')
 		path = root + str(year)
@@ -44,8 +44,14 @@ def makeDataCsv():
 	# Initialize empty cells with the first column is player ID
 	lines = []
 	for elm in players:
+		if elm[0] == '648095':
+			for i in range(642767, 648095):
+				line = [i]
+				line.extend([0] * 28)
+				lines.append(line)
 		line = [elm[0], elm[1]]
 		line.extend([0] * 26)
+		line.append(elm[3])
 		lines.append(line)
 	# Store player ID and initial time of who are playing on the field
 	print("Start processing event file...")
@@ -77,9 +83,17 @@ def makeDataCsv():
 				lines[row][2] += int(event[7])
 		else:
 			# The player has been on the field from the beginning
-			if not event[9] in hasPlayed:
+			# if not event[9] in hasPlayed:
+			# 	hasPlayed.append(event[9])
+			# if not event[9] in playerID:
+			# 	playerID.append(event[9])
+			# 	start.append(0)
+			if event[9] in hasPlayed:
+				if not event[9] in playerID:
+					playerID.append(event[9])
+					start.append(int(event[7]))
+			else:
 				hasPlayed.append(event[9])
-			if not event[9] in playerID:
 				playerID.append(event[9])
 				start.append(0)
 			column = header.index(event[10])
