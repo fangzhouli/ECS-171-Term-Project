@@ -199,7 +199,8 @@ class Mlp(object):
     def __init__(self, model_name, n_feat, n_hidden, n_node, n_epoch, n_train,
                  pathToDataset='feature.csv', init_b=1.0, r_l=0.1,
                  random=False, intvl_save=100, intvl_write=10, intvl_print=10,
-                 compact_plot=True, seed = 1234, max_to_keep=None):
+                 compact_plot=True, seed = 1234, max_to_keep=None,
+                 normalization='nor'):
         """ Initialization of MLP attributes
         Input:
           - @model_name: str
@@ -223,7 +224,7 @@ class Mlp(object):
           - @r_l: float, default 0.1
                Learning rate
           - @random: boolean, default False
-               Flag for whether to randomize the rows.
+               Flag for whether to randomize the rows before splitting.
           - @intvl_save: int, default 100
                Number of epochs to run before saving Tensorflow files
           - @intvl_write: int, default 10
@@ -241,6 +242,9 @@ class Mlp(object):
           - @max_to_keep: int, default None
                Maximum number of Tensorflow checkpoint files to keep. If sets
                  to 'None', there's no limit.
+          - @normalization: str
+               Normalization method. Default is (X - min(X))/(max(X) - min(X))
+                 unless 'zscore' is specified.
         """
         # NP settings: print 250 chars/line; no summarization; always floats
         np.set_printoptions(linewidth=250, threshold=np.nan, suppress=True)
@@ -265,17 +269,32 @@ class Mlp(object):
         self.compact_plot = compact_plot
         self.seed = seed
         self.max_to_keep = max_to_keep
-        # Normalize features
-        for i in range(n_feat):
-            df.iloc[:, i] = ((df.iloc[:, i] - df.iloc[:, i].mean())
-                             /df.iloc[:, i].std())
+
+        if normalization is 'zscore':
+            print('Using z-score for normalization.')
+            for i in range(n_feat):
+                df.iloc[:, i] = ((df.iloc[:, i] - df.iloc[:, i].mean())
+                                     /df.iloc[:, i].std())
+        else:
+            print('Using (X - min(X))/(max(X) - min(X)) for normalization.')
+            for i in range(n_feat):
+                max = df.iloc[:,i].max()
+                min = df.iloc[:,i].min()
+                df.iloc[:, i] = ((df.iloc[:, i] - min) / (max - min))
+
         self.df = df
         # Split data
-        X = self.df.iloc[:, 0:n_feat].values
+        #X = self.df.iloc[:, 0:n_feat].values
+        X = self.df.iloc[:, 0:n_feat]
+        X = X.sample(frac=1, random_state=seed)
+        X = (X.reset_index(drop=True)).values
         self.X_train = X[0:n_train,]
         self.X_test = X[n_train: ,]
 
-        Y = self.df.iloc[:, n_feat:].values
+        #Y = self.df.iloc[:, n_feat:].values
+        Y = self.df.iloc[:, n_feat:]
+        Y = Y.sample(frac=1, random_state=seed)
+        Y = (Y.reset_index(drop=True)).values
         self.Y_train = Y[0:n_train,]
         self.Y_test = Y[n_train:,]
 
@@ -315,15 +334,28 @@ class Mlp(object):
                 prev_layer = 'h'+str(i)
                 y[layer] = tf.nn.sigmoid(tf.matmul(y[prev_layer], W[layer])
                                          + b[layer])
-        # Output layer construction
-        W['out'] = tf.get_variable('Wout', shape=[self.n_node, 1],
-                                   initializer=tf.contrib.layers
-                                               .xavier_initializer(
-                                                  seed=self.seed))
-        b['out'] = tf.get_variable('bout', initializer=(tf.zeros([1, 1])
-                                                        + self.init_b))
-        y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
-                                 + b['out'])
+        # 0 hidden layer
+        if self.n_hidden is 0:
+            # Output layer construction
+            W['out'] = tf.get_variable('Wout', shape=[self.n_feat, 1],
+                                       initializer=tf.contrib.layers
+                                                   .xavier_initializer(
+                                                      seed=self.seed))
+            b['out'] = tf.get_variable('bout', initializer=(tf.zeros([1, 1])
+                                                            + self.init_b))
+            y['out'] = tf.nn.sigmoid(tf.matmul(X, W['out']) + b['out'])
+
+        else:
+            # Output layer construction
+            W['out'] = tf.get_variable('Wout', shape=[self.n_node, 1],
+                                       initializer=tf.contrib.layers
+                                                   .xavier_initializer(
+                                                      seed=self.seed))
+            b['out'] = tf.get_variable('bout', initializer=(tf.zeros([1, 1])
+                                                            + self.init_b))
+            y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
+                                     + b['out'])
+
         # Loss function: binary cross entropy with 1e-30 to avoid log(0)
         cross_entropy = -tf.reduce_sum(Y * tf.log(y['out']+1e-30)
                                        + (1-Y) * tf.log(1-y['out']+1e-30),
