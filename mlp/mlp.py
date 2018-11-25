@@ -73,7 +73,8 @@ def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
                               n_epoch, n_train, pathToDataset='feature.csv',
                               init_b=1.0, r_l=0.1, random=False,
                               intvl_save=100, intvl_write=10, intvl_print=10,
-                              compact_plot=True, seed=1234, max_to_keep=None):
+                              compact_plot=True, seed=1234, max_to_keep=None,
+                              n_grid_layer=3):
 
     """ Run a grid search on 12 CSIF computers simultaneously
 
@@ -128,13 +129,16 @@ def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
              the latter contains individual value of every single weight.
       - @seed: int, default 1234
            Seed for RNGs to provide reproducibility.
+      - @max_to_keep: int, default None
+           Maximum number of Tensorflow checkpoint files to keep. If sets
+             to 'None', there's no limit.
+      - @n_grid_layer: int, default 3
+           Number of layers for grid search.
     """
 
-    layers = [str(i+1) for i in range(0,3)] # 1 to 3 layers
+    layers = [str(i+1) for i in range(0, n_grid_layer)] # 1 to n layers
     neurons = [str(i) for i in range(10, 26, 5)] # 10~25 neurons with step of 5
 
-    if pc is None:
-        pc = [str(i) for i in range(40, 52)] # 12 PCs, from pc40~51
     i = 0 # counter for 'pc'
 
     for layer in layers:
@@ -485,10 +489,11 @@ class Mlp(object):
             m_name = "_".join([self.model_name,
                                str(self.n_hidden),
                                str(self.n_node)])
-            self.saver.save(self.sess, "./mlp/checkpoints/" + m_name,
-                            global_step = self.n_epoch)
-            print("\u001B[33m#### Session Saved @ epoch "
-                  "{} ####\u001b[0m".format(self.n_epoch))
+            if self.n_epoch > self.intvl_save:
+                self.saver.save(self.sess, "./mlp/checkpoints/" + m_name,
+                                global_step = self.n_epoch)
+                print("\u001B[33m#### Session Saved @ epoch "
+                      "{} ####\u001b[0m".format(self.n_epoch))
 
 
     def get_acc(self):
