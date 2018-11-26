@@ -74,11 +74,12 @@ def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
                               init_b=1.0, r_l=0.1, random=False,
                               intvl_save=100, intvl_write=10, intvl_print=10,
                               compact_plot=True, seed=1234, max_to_keep=None,
-                              n_grid_layer=3):
+                              n_grid_layer=4, n_grid_neuron=6):
 
-    """ Run a grid search on 12 CSIF computers simultaneously
+    """ Run a grid search on multiple CSIF computers simultaneously
 
-    Grid search covers from 1 ~ 3 layers and 10 ~ 25 neurons with a step of 5.
+    Grid search covers 'n_grid_layer' hidden layers from 0 hidden layer and
+      1 ~ ('n_grid_neuron') neurons.
 
     Before using this function, Three things have to be done:
 
@@ -133,12 +134,13 @@ def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
            Maximum number of Tensorflow checkpoint files to keep. If sets
              to 'None', there's no limit.
       - @n_grid_layer: int, default 3
-           Number of layers for grid search.
+           Number of layers for grid search from 0 hidden layer.
+      - @n_grid_neuron: int, default 6
+           Number of layers for grid search from 1 neuron.
     """
 
-    layers = [str(i+1) for i in range(0, n_grid_layer)] # 1 to n layers
-    neurons = [str(i) for i in range(10, 26, 5)] # 10~25 neurons with step of 5
-
+    layers = [str(i) for i in range(0, n_grid_layer)] # 0 to n layers
+    neurons = [str(i) for i in range(1, n_grid_neurons+1)]
     i = 0 # counter for 'pc'
 
     for layer in layers:
@@ -497,7 +499,7 @@ class Mlp(object):
                     # calculate accuracy if it there was no write in this epoch
                     if acc_tr or acc_ts is None:
                         acc_tr, acc_ts = self.get_acc()
-                    print("{}\t{:.2f}\t   {:.2f}".format(epoch,
+                    print("{}\t{:.4f}\t   {:.4f}".format(epoch,
                                                          acc_tr, acc_ts))
 
                 if epoch % self.intvl_save == 0:
@@ -517,7 +519,7 @@ class Mlp(object):
             # Save everything after last epoch
             acc_tr, acc_ts = self.get_acc()
             self.write_pts_csv(writer, self.n_epoch, acc_tr, acc_ts)
-            print("{}\t{:.2f}\t   {:.2f}".format(self.n_epoch, acc_tr, acc_ts))
+            print("{}\t{:.4f}\t   {:.4f}".format(self.n_epoch, acc_tr, acc_ts))
             m_name = "_".join([self.model_name,
                                str(self.n_hidden),
                                str(self.n_node)])
