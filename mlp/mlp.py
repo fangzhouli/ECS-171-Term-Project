@@ -140,7 +140,7 @@ def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
     """
 
     layers = [str(i) for i in range(0, n_grid_layer)] # 0 to n layers
-    neurons = [str(i) for i in range(1, n_grid_neurons+1)]
+    neurons = [str(i) for i in range(1, n_grid_neuron+1)]
     i = 0 # counter for 'pc'
 
     for layer in layers:
@@ -166,6 +166,10 @@ def parallel_csif_grid_search(username, pc, pathToDir, model_name, n_feat,
             system("xterm -e \"echo \\\"" + msg +  "\\\"; " + cmd
                          + "; $SHELL\" &")
             i += 1
+            # Don't need to do for every hidden node when there's no hidden
+            #   layer
+            if layer == '0':
+                break
 
 
 def plot_pts_csv(filepath):
@@ -602,10 +606,14 @@ class Mlp(object):
                 # Add biases to the list
                 csv_header += ['b' + str(i+1) + '_'
                                 + str(j+1) for j in range(n_out)]
-
-            # Add the names for the final layer
-            csv_header += ['Wout_1_' + str(i+1) for i in range(self.n_node)]
-            csv_header += ['bout_1']
+            if self.n_hidden is 0:
+                csv_header += ['Wout_' + str(i+1) for i in range(self.n_feat)]
+                csv_header += ['bout_1']
+            else:
+                # Add the names for the final layer
+                csv_header += ['Wout_1_'
+                               + str(i+1) for i in range(self.n_node)]
+                csv_header += ['bout_1']
 
         csv_header += ['training_acc', 'testing_acc']
 
