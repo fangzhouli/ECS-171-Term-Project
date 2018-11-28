@@ -51,3 +51,13 @@ Pass in the path such that the list of your path contains:
     frame.py                          tsne_graph_gen.py
     output/
 Then run the program
+
+### /pre_game_teams.py
+Take data from data.csv and compute expected team features and output to pre_game_teams.csv
+### How to use:
+In current path: python3 pre_game_teams.py
+
+### /post_game_team_diff.py
+Take data from RegularSeasonDetailedResults.csv and compute post-game team features and output to post_game_team_diff.csv
+### How to use:
+In current path: python3 post_game_team_diff.py
