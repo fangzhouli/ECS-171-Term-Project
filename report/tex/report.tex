@@ -15,14 +15,14 @@
 \usepackage{microtype}      % microtypography
 \setlength{\parindent}{0pt}
 
-\title{TITLE}
+\title{Using ML Approach to NCAA Match Prediction}
 
 \author{
 \begin{tabular}{ccc}
 Ming~Cheng & Xingwei~Ji & Xiaofang~Jiang  \\
 Fangzhou~Li & Diwen~Lu & Paul~Lu \\
-Junyang~Shi & Jiayi~Xu & Timothy~Zhang \\
-Haibin~Zhang & Feiwen~Zheng 
+Jiayi~Xu & Timothy~Zhang & Haibin~Zhang \\
+ & Feiwen~Zheng 
 \end{tabular}
 }
 
@@ -30,24 +30,35 @@ Haibin~Zhang & Feiwen~Zheng
 
 \maketitle
 
+\textbf{Github Link:}\\
+https://github.com/3tz/Using-ML-Approach-to-NCAA-Match-Prediction
+
 \begin{abstract}
-\quad We are doing prediction on result of National Collegiate Athletic Association (NCAA) Basketball game.  Before doing prediction, data will be processed to choose the most matching teams. Then we use model to predict on the result of next year for a regular season  using data of previous year. Two methods are applied for prediction. The first one is feeding preprocessed data into MPL. The second method is the application of logistic regression on the difference of features between two teams. 
-\end{abstract}
+\quad We are doing prediction on result of National Collegiate Athletic Association (NCAA) Basketball game. Data preprocessing was performed to generate pre-game (statistics of a Team or a player collected after a game) and post-game (expected statistics of a Team or a player before a game) statistics, while post-game statistics is used for feature validation. Then, we use logistic regression and MLP to predict the result for this year using data from previous years. The pre-game prediction use regular season matches since 2010 to predict the winner between any two teams in 2018. The post-game prediction relies on data from 2003 to 2010 to generalize the most influential features for prediction. The accuracy of pre-game prediction is 60\% for logistic regression and 64\% for MLP. And the accuracy of post-game prediction is 94\% for both models. This papers provide information of how to utilize complicated regular season matches’ data for later research.
+\end{abstract} \newpage
 
 \section{Introduction}
 
-\quad to be finished
+\quad The National Collegiate Athletic Association (NCAA) Basketball is one of the biggest sport events among universities, and approximately 300 teams participate in Men's Division I. Before moving forward to the tournament, the teams will compete with each other in the regular season to determine the best 68 teams who will play in the single-elimination tournament [1].
+Predicting the outcomes of regular season matches requires more efforts in data and feature refinement than predicting those of tournaments does because team skills are more unbalanced, team members are more likely to be distracted by environment, etc. Shi, Moorthy, and Zimmermann [2] provide a prediction model for regular season matches, but they are based on the statistics in one season to predict the outcomes of the same season. The problem of this approach is that in reality, the seasonal statistics is not available until the season is over, so the introduced predictor above is not practical. Comparing to tournaments that are played by merely 68 teams, regular seasons are consisted of abundant complicated but potential dataset. However, it is far more difficult to train and predict regular matches by using normal approaches [3], and it is important to come up with an approach to energize regular season datasets to provide useful information in prediction.
+
+\quad In this paper, we retrieved the data from Kaggle [4]. The data includes both detailed regular season and tournament games results since 2010 and compact games result since 2003. In the first part of our paper we discuss about pre-game prediction, which we focus on data processing of regular seasons. The data records the events performed by players in a game. There are 21 event types performed by a player, including assist, block, steal, turnover, foul, rebound, throw made, and throw missed, etc. Our approach to the problem is to assign ability scores to each player according to his performance last year. The score ability of a player is calculated by counting the event type conducted by that person. For example, if a player performed 20 assists in 2010, the ability score associated with assisting would be 20 for that player in 2011. Thus, each player is represented by 21 ability scores from which we know how that player performs expectedly. After assigning ability scores to each player, we iterate each match to detect players in two teams who have played against each other. Since the member information of each team is provided by Kaggle, we can use player ID to retrieve team member ability scores and calculate the ability scores of teams by adding their member ability scores. Then we feed two teams' ability scores, 42 features, into MLP and logistic regression models to classify the first team (associated with the first 21 features) to winning group or losing group. The second part of our paper discusses about post-game prediction, which we divide compact games result since 2003 into training set and testing set. The reason for this is that we want to generalize the most influential factors out of 21 event types. Eventually, we decide to use only 10 event types. Also, instead of feeding winning and losing team features together, we feed the difference of features of two teams. Setting 70\% of samples to be training set, post-game prediction has the accuracy of 94\%-95\% for both logistic regression and MLP, and for the pre-game prediction, the accuracy using MLP is 64\% while the accuracy using logistic regression is 60\%. By using this new approach, we have improved the performance of predicting regular season outcomes.
+
+
+
+
 
 \section{Methods}
 
-\quad To predict game results in 2018 by only knowing two team IDs playing against each other in each arranged game, there are 2 steps to be done. The first is to ascertain whether the team features we choose can best explain the game result. The second is to find a reliable approximation of team players post-game statistics for both old team players and new team players.
+\quad To predict game results in 2018 by two teams' IDs playing against each other in each arranged game, there are 2 steps: data pre-processing and model fitting. In data preprocessing, we first ascertain whether the team features we choose can best explain the game result, and then we find a reliable approximation of team players post-game statistics for both old team players and new team players. In model fitting, we try logistic regression and multiple MLP with various hidden layers number and hidden neurons number.
 
 \subsection{Data Pre-processing}
 
 
+
 \subsubsection{Generating post-game statistics for game results prediction}
 
-\quad In finding which team post-game statistics can best explain the game results, we took data from RegularSeasonDetailedResults.csv, since we were only interested in the team as a whole and didn’t need to know post-game statistics for sepcific palyers. RegularSeasonDetailedResults.csv recorded game statistics (see TABLE1), as well as if it is a home, away, or neutral for winning team (“neutral” means the game is played in either of teams’ cities), and the day of game in that season. However, we don’t consider location and the day of match in our model. The reason is such information is outside inteference, and we expect it to have little influence on players’ performance. The file contains in total 76636 regular season gamses from 2003 to 2017. But among those years, we have playbyplay data only from 2010 to 2017, plus 2018, that have detailed records of each events that happend in each regular season game and each game’s players information. We decided to leave the game data from 2010 to 2017 for finding a reliable approximation of team players post-game statistics, and only use game results from 2003 to 2010 (39337 games) to check best team features to use in prediction model. For each team, there are 13 features (FGM, FGA, 3PM, 3PA, FTM, FTA, OR, DR, AST, TO, STL,BLK, PF) and 1 label (W/L) we took into consideration. And since we are not predicting concrete scores but the relative win and lose, we transferred 6 features each team that directly have influences on final score to 3 ratios (FG\%, 3P\%, FT\%) representing the shooting skill in field goal, three point, and free throw for each team, leaving only 10 features and 1 label now.
+\quad First we took team statistics from RegularSeasonDetailedResults.csv given in kaggle. RegularSeasonDetailedResults.csv recorded game statistics, including the location of the game (home, away, or neutral for winning team), and the day of game in that season. However, we didn’t consider location and the day of match in our model because we expect such information to be irrelevant to our models and have little influence on players’ performance. The file contains in total 76636 regular season games from 2003 to 2017, but we only have play-by-play data that are detailed records of each events that happened in each regular season game and each game’s players information from 2010 to 2017. We decided to use the game data from 2010 to 2017 for finding a reliable approximation of team players post-game statistics, and only use game results from 2003 to 2010 (39337 games) to check best team features to use in prediction model. For each team, we took 13 features into consideration: field goals made (FGM), field goals attempted (FGA), three points made (3PM), three points attempted (3PA), free throw made (FTM), free throw attempted (FTA), offense rebound (OR), defense rebound (DR), assist (AST), turnover (TO), steal (STL), block (BLK), personal foul (PF) and 1 label win or lose (W/L). And since we are not predicting concrete scores but the relative win and lose, we transferred 6 features of each team that directly have influences on final score to 3 ratios, field goal shooting percentage (FG\%), three point shooting percentage (3P\%), and free throw shooting percentage (FT\%), to represent the shooting skill in field goal, three point, and free throw for each team, resulting in 10 features and 1 label now.
 
 \quad Each line of \texttt{post\_game\_team\_diff.csv} is constructed as follows: \\
 
@@ -68,13 +79,11 @@ For each game:
             W/L = 0
 \end{lstlisting}
 
-\quad The reason is if we only take wining team as base team, then all labels would be 1, a very bad situation in which we have no instance of losing sample. At end, we have 78674 instances of games, half of them win instances and half lose instances.
+\quad We processed the data such that we have 78674 instances of games, half of which are win instances. 
 
-\quad There are two problems with such representation. One is that the three shoorting percentages are of different magnitude from other team statistics. To ensure the computation precision and avoid error by cancellation, it is a bad habit to have data on different magnitudes. We multiple FG\%, 3P\%, and FT\% by 100 before taking difference between two teams and thus data are on the same scale now. The other issue is that some team didn’t even attempt ceratin type of shoot and divide 0 by 0 would yield NaN. There are only 36 instances (18 games) with NaN, tiny to our sample size at  , so we simply discarded these games from our samples. \\ 
+\quad There are two problems with such representation. One is that the three shooting percentages are different from other team statistics. To ensure the computation precision and avoid error by cancellation, we multiple FG\%, 3P\%, and FT\% by 100 so that the data were on the same scale. The other issue is that some teams didn’t even attempt certain type of shoot and divide 0 by 0 would yield NaN. There are only 36 instances (18 games) with NaN, which is a small size to our samples, so we simply discarded these games.
 
-The resulting data would look like: \\
-
-(1st game in 2003)
+The resulting data would look like: (1st game in 2003) \\ 
 
 \textbf{TABLE 1: 1st game in 2003 after rescale }
 
@@ -93,15 +102,19 @@ AST\_diff & TO\_diff & STL\_diff & BLK\_diff& PF\_diff\\
 \end{table}
 
 
-\quad After generating team features differences for all games from 2003 to 2010, we wonder if there are any outliers that would affect bianry classification accuarcy. We performed isolation forest outlier detection on the dataset. The detector found total of 8839 outliers out of 78638 samples in the dataset. 
+\quad After generating team features differences for all games from 2003 to 2010, we wonder if there are any outliers that would affect binary classification accuracy. We performed isolation forest outlier detection on the dataset. The detector found total of 8839 outliers out of 78638 samples in the dataset. 
 
 \subsubsection{Generating pre-game statistics for game result prediction}
 
-\quad After having assured features we selected (FG\%\_diff, 3P\%\_diff, FT\%\_diff, OR\_diff, DR\_diff, AST\_diff, TO\_diff, STL\_diff, BLK\_diff, PF\_diff) strongly explain the game results (W/L), we moved on to find a way to estimate a team's post-game statistics before a game, and use the estimated team statistics to predict game result. We first calculates the ability scores in order to assign them to each player. Each player's ability scores are based on his performance in the last year. The scores are calculated by counting how many times a player performed each type of events. Since there are 21 different event types, we use 21 features to represent a player's ability information. Kaggle [3] provides event files, Events\_20XX.csv, recording each event conducted by a player with an ID and player files, Players\_20XX.csv, recording player IDs and player names. Player IDs started from 600001 to 642766 consecutively from 2010 to 2017. In order to reduce the accessing time, we read the player ID into a list, and to access the ability scores of player with the ID P, we could access by row index [P – 600001] of the list, which reducing O(n) searching problem into O(1).
+\quad We denote difference between any team feature by team\_diff. After having features (FG\%\_diff, 3P\%\_diff, FT\%\_diff, OR\_diff, DR\_diff, AST\_diff, TO\_diff, STL\_diff, BLK\_diff, PF\_diff) that strongly explain the game results (W/L), we moved on to find a way to estimate a team’s post-game statistics, and use the estimated team statistics to predict game result. We first calculated the ability scores for each player. Each player’s ability scores are based on his performance last year. The scores are calculated by counting the number a player performed each type of events. Since there are 21 different event types, we use 21 features to represent a player’s ability information. Kaggle [3] provides event files, Events\_20XX.csv, recording each event conducted by a player with an ID and player files, Players\_20XX.csv, recording player IDs and player names. Player IDs started from 600001 to 642766 consecutively from 2010 to 2017. In order to reduce the accessing time, we read the player ID into a list. To access the ability scores of player with the ID P, we could access by row index [P – 600001] of the list, which reduced O(n) searching problem into O(1).
 
-\quad Then we calculates team features from 2011 to 2018 based on the performance of team players in the previous year. We need information about who played in which team. We assumed all team players would play in the game, and we obtained who they are by iterating each row in each Events\_20XX.csv and collected rows that belong to a single game and read player IDs that ever appeared in that game. A player might have multiple player IDs because he could show up in games in multiple years. For simplicity, we treated him as different players in different years, and we treated his first time appearance as a new player. Then we took the post-game statistics of each team players from the previous year, which represent our expectation of that player's performance in this year, and stored the whole team players post-game statistics in a data structure for later reference. For those new players in the team who never appeared in any games before, we took avg of all new players' post-game statistics from 2011 to 2017, and insert their information into that data structure, since we have no historical post-game statistics for this new players and this is the only way we can have a sense of how new players perform on average. For each game, we have expected post-game statistics for both teams and we calculate expected team post-game statistics based on its players data. 
+\quad Then we calculate team features from 2011 to 2018 based on the performance of team players in the previous year. We need information about the team players. We assumed all team players would play in the game, and we obtained who they are by iterating each row in each Events\_20XX.csv and collected rows that belong to a single game and read player IDs that ever appeared in that game. A player might have multiple player IDs because he could show up in games in multiple years. For simplicity, we treated him as different players in different years, and we treated his first time appearance as a new player. Then we took the post-game statistics of each team players from the previous year, which represent our expectation of that player’s performance in this year, and stored the whole team players post-game statistics in a data structure for later reference. For those new players in the team who never appeared in any games before, we took average of all new players’ post-game statistics from 2011 to 2017, and insert their information into that data structure, since we have no historical post-game statistics for this new players and this is the only way we can have a sense of how new players perform on average. For each game, we have expected post-game statistics for both teams and we calculate expected team post-game statistics based on its players data. \\
 
+\quad Each line of \texttt{pre\_game\_teams.csv} is constructed as follows:\\
 
+\quad For each game, we write out Wteam features and then Lteam features and 1 or Lteam features and Wteam features and 0, in alternating order, since we want to decrease the variance in the spread of dependent variable W/L. \\
+
+\quad The final expected post-game statistics for each game from 2011 to 2018 were then fed to MLP and logistic regression for training and testing, with games from 2011 to 2017 for training and games from 2018 for testing. 
 
 \subsection{Model fitting}
 
@@ -219,31 +232,28 @@ rscript logitReg/logitReg.R
 
 \includegraphics[scale=0.9]{tsne.png} 
 
-\textbf{Outlier detection in data-processing for post-game statistics for game results}
+\quad After deciding not doing outlier detection, we tried MLP with several different number of hidden layers and number of hidden neurons but they all converged to same testing accuracy very quickly. Then we tried logistic regression in R and found it showed around same testing accuracy as was in MLP model. We decided to use MLP in pre-game statistics for game result prediction since it is more versatile.
 
-\quad After deciding not doing outlier detection, we tried MLP with several different number of hidden layers and number of hidden neurons but they all converged to same testing accuracy very quickly. Then we tried logistic regression in R and found it showed around same testing accuracy as was in MLP model. We decided to use MLP in pre-game statistics for game result prediction since it is more versatile. \\ 
+\quad The final weights for 10 features in 0-hidden-layer MLP are: \newpage
 
 \textbf{Mean Weight vs Epoch\qquad \qquad Accuracy vs Epoch} \\
 \includegraphics[scale=0.4]{postGame_0_1_compact_accuracy.png} 
-\includegraphics[scale=0.4]{postGame_0_1_detailed_weights.png} 
+\includegraphics[scale=0.4]{postGame_0_1_detailed_weights.png} \\
 
-\textbf{TABLE 3: 10 weights of 10 features in post-game statistics MLP game result prediction }
+\textbf{Individual Weights in Post-Game Stat MLP Game Prediction}
 
-\begin{table}[h]
+
 \begin{tabular}{llllllllll}
 FG\%\_diff & 3P\%\_diff & FT\%\_diff  & OR\_diff   & DR\_diff \\
 40.828392  & 16.331735  & 16.0064106  & 20.5814533 & 12.79597 
-\end{tabular}
-\end{table}
+\end{tabular} 
 
-\begin{table}[h]
 \begin{tabular}{llllllllll}
 AST\_diff &TO\_diff & STL\_diff & BLK\_diff& PF\_diff\\
 6.48547268  &-35.493058 & 3.15093279 & 2.80670953 & -14.080395
 \end{tabular}
-\end{table}
 
-Interestingly, we notice only 2 features have negative weights, and they are TO\_diff and PF\_diff. It makes sense because turnovers and persona fouls has an negative impacting on a team's scoring and would let the opponent team score more.
+
 
 \subsection{Results on pre-game statistics game results prediction}
 \quad Combined versions of the MLP plots on pre-game data\footnote{Individual images can be found in \texttt{/mlp/NCAA\_preGame/plots/}.} for grid search on [1, 6] layer neuron and [1, 3] hidden layers are on the next two pages, where row number is the number of neurons per layer, and column number is the number of hidden layer. The plots for grid search on no hidden layer are on the page after. \newpage
@@ -277,7 +287,65 @@ Testing Accuracy:	0.6032
 
 
 
-\section{Discussion}
+\section{Discussion} 
+
+\subsection{Conclusion}
+
+\quad Since predicting game result is a problem of classification, we consider the logistic regression the optimal choice. But we initially decided to use ANN since logistic regression can be done through ANN with 0 hidden layer, and we want to test if using multiple hidden layers and multiple neurons has any effects on predicting accuracy.
+
+
+\quad We noticed a huge drop from 95\% post-games testing accuracy in MLP to around 63\% pre-games testing accuracy. Such discrepancy can be explained in terms of uncertainty of NCAA’s games and our methods in generating expected team features. 
+
+\quad The nature of NCAA complicated the prediction because NCAA has a higher rate of changing players in a team. We could only infer a new player’s post-game statistics by the average of the past instances of new players. But those data has a high variance, which means single player differs from one to one drastically. A replacing solution is to take the average of previous years, but such measure is the same as the what we took, and taking average from 2010 to 2017 would be closer to new players’ average post-game statistics. We haven’t found a better way to estimate pre-game new players’ statistics.
+
+\quad A series of other problems arose as we proceeded our prediction. We weren’t satisfied with our testing accuracy at only 60\%. We found some similar studies on NBA game results prediction[10] and realized we didn’t do feature validation and feature selection before training. We have 21 features for each team (thus, 42 for 2 teams) in pre-game statistics prediction, but 3 of them belong to the same category and 1 of them (technical foul) should be intuitively insignificant to game result. Therefore, to double check the features we select can best explain the game result, we categorized 21 features into 10 groups, the features we used in post-game statistics game results prediction. We found an interesting phenomenon in post-game statistics game result prediction. Only 2 features have negative weights are TO\_diff and PF\_diff. It makes sense because turnovers and personal fouls has an negative impact on a team’s scoring. But we didn’t have sufficient time to do the further pre-game statistics game result after removing the insignificant features. \\
+
+\subsection{Improvement}
+
+\subsubsection{Data}
+
+\quad Coach information is not used mainly because we failed to find out how to define a coach’s effect on a team. A team’s performance may have some relationship with the change of coach, but given the situation that NCAA team members change more frequently and each team are having an average of three new players that have never played before, it made it really hard to determine and implement the effect of a coach in mathematical form. One of the simple ways to represent this effect, for instance, would be using the winning rate of the coach’s team of last season, but we didn’t apply it in our model because if the coach was new to the league, then this feature would become not applicable. 
+
+
+\quad In real world, the team playing at its home is often considered to have certain advantages and to be more likely to win if the rank of the team is close to, or even a little bit lower than its opponent [5]. In this case, the location of the game should play a somewhat important role in predicting the outcome of a game. We expect that adding location of the game into the feature matrix would somehow improve accuracy.
+
+
+\quad The dataset provided by Kaggle contains a lot of information, from essential information such as player and game statistics to supplement information such as team names, cities and secondary games. After scanning through the whole dataset and considering our goal and time we had, we decided to only focus on features that directly relate to the performance of a team and could be expressed in math formulas.
+
+\subsubsection{Goal}
+
+\quad The current goal of the project is to predict the outcomes of the games that are listed in events files and accuracy is calculated through comparing our prediction with real results. An alternative way to set the goal consists of two parts: predicting all regular season games, and predicting tourney of which the teams that play are based on regular season results. This will make the project have more practical meanings. However, the rules and schedule of tourney were quite confusing, and unfortunately we didn’t notice it before we realize that we didn’t have much time left.
+
+\subsubsection{Model}
+
+\quad Since our model uses the features, the statistics of players, to predict an outcome of a game, our model would not take into account margin cases in which a team that is predicted to be weaker wins the stronger team and home-court advantage. To compromise these problems, we could have created a model using Markov Chain. [7]
+
+\quad The goal is to find the transition matrices which represent the likelihood of team A being better than team B given that A beat B by x points . We can use a logistic model to obtain a smoother estimate of  the probabilities of  win rate. Then we can use these transition matrices with probabilities to predict the outcome of a game. To further make the predictions accurate for the matches in NCAA, we can deduce the transition matrices without home-advantage effect when we want to predict a game in a neutral-court game. [7]
+
+
+\newpage
+
+\section*{Author contributions}
+
+Ming Cheng: Data Framing, Report
+
+Xingwei Ji: Data preprocessing, outlier detection, Report
+
+Xiaofang Jiang: Input refining, Report
+
+Fangzhou Li: Project outline; Data preprocessing; Report
+
+Diwen Lu: Data preprocessing; training
+
+Paul Lu: Input refining, Report
+
+Jiayi Xu: Data Framing, Report
+
+Timothy Zhang: MLP \& Logistic Regression construction; training
+
+Haibin Zhang: primary architecture, data set and filtrate
+
+Feiwen Zheng: Input refining, Report \newpage
 
 
 
@@ -285,17 +353,46 @@ Testing Accuracy:	0.6032
 \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad \qquad .
  
 \small
-[1] Alexander, J.A.\ \& Mozer, M.C.\ (1995) Template-based algorithms for
-connectionist rule extraction. In G.\ Tesauro, D.S.\ Touretzky and T.K.\ Leen
-(eds.), {\it Advances in Neural Information Processing Systems 7},
-pp.\ 609--616. Cambridge, MA: MIT Press.
 
-[2] Bower, J.M.\ \& Beeman, D.\ (1995) {\it The Book of GENESIS: Exploring
-  Realistic Neural Models with the GEneral NEural SImulation System.}  New York:
-TELOS/Springer--Verlag.
+[1]	NCAA Division I Men's Basketball Tournament (2018). Available: 
 
-[3] Hasselmo, M.E., Schnell, E.\ \& Barkai, E.\ (1995) Dynamics of learning and
-recall at excitatory recurrent synapses and cholinergic modulation in rat
-hippocampal region CA3. {\it Journal of Neuroscience} {\bf 15}(7):5249-5262.
+https://en.wikipedia.org/wiki/NCAA\_Division\_I\_Men\%27s\_Basketball\_Tournament. \\
+
+[2]	Shi, Z., Moorthy \& S.,  Zimmermann, A. (2013) Predicting NCAAB match outcomes using ML techniques—some results and lessons learned. Proceedings of the MLSA Workshop at ECML/PKDD 2013
+
+https://arxiv.org/pdf/1310.3607.pdf \\
+
+[3]	Zimmermann, A. (2016) Basketball Predictions in the NCAAB and NBA: Similarities and Differences. Available: 
+
+https://zimmermanna.users.greyc.fr/papers/journals/sadm2016.pdf.\\
+
+[4]	Google Cloud \& NCAA® ML Competition 2018-Men's. Available: 
+
+https://www.kaggle.com/c/mens-machine-learning-competition-2018/data. \\
+
+[5]	Lopez, M.J. \& Matthews, G. (2014) Building an NCAA Men's Basketball Predictive Model and Quantifying Its Success. arXiv: 1412. 0248. Available:
+
+            https://creativematter.skidmore.edu/cgi/viewcontent.cgi?article=1001\&context=math\_fac\_schol \\
+
+[6]       Lo-Hua, Y. \& Anthony, L. (2015) A mixture-of-modelers approach to forecasting NCAA tournament outcomes. Available:
+
+            https://www.lukebornn.com/papers/yuan\_jqas\_2014.pdf \\
+
+[7]       S.P.Kvan and J.S.Sokol. (2016) A logistic regression/Markov Chain model for NCAA basketball. Naval Research Logistics, 53:788-803 Available:
+
+            https://onlinelibrary.wiley.com/doi/epdf/10.1002/nav.20170 \\
+
+[8]       Mark, B. \& Joel, S. (2010) An improved LRMC method for NCAA basketball predictions. Journal of Quantitative Analysis in Sports. Available:
+
+https://www.degruyter.com/downloadpdf/j/jqas.2010.6.3/jqas.2010.6.3.1202/jqas.2010.6
+.3.1202.pdf \\
+	
+[9]       Harish, S.B. \& Li-Hsuan, H. \& Sebastian R. (2015) Learning stochastic models for basketball substitutes from play-by-play data. In MLSA15, Workshop at ECML/PKDD.Available:
+
+        	http://ceur-ws.org/Vol-1970/paper-08.pdf\\
+
+[10]     Eric S.J. (2016) Predicting outcomes of NBA Basketball Games. Available:
+
+https://library.ndsu.edu/ir/bitstream/handle/10365/28084/Predicting\%20Outcomes\%20of      \%20NBA\%20Basketball\%20Games.pdf?sequence=1\&isAllowed=y\\
 
 \end{document}
