@@ -5,7 +5,7 @@ import csv
 import numpy as np 
 import pandas as pd 
 
-path = '/Users/leomailbox/Desktop/NCAA_data/'
+path = './NCAA_data/'
 years = [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]
 
 def get_data():
@@ -18,7 +18,8 @@ def get_data():
 	data.iloc[:,2:-1] = data.iloc[:,2:-1].apply(pd.to_numeric)
 	data['time'] = data['time']/60
 	data.iloc[:,2:-1] = data.iloc[:,2:-1].div(data['n_match'],axis=0)
-	return data
+	TEAMS = data.loc[data['name'] == 'TEAM']['player_ID'].tolist()
+	return data, TEAMS
 
 def player_stats_gen(player_IDs, player_names_this_year, player_IDs_this_year, player_names_last_year,  
 	player_IDs_last_year, data, new_player_stats):
@@ -29,7 +30,8 @@ def player_stats_gen(player_IDs, player_names_this_year, player_IDs_this_year, p
 	new_names = list(set(names)-set(player_names_last_year))
 	old_names = list(set(names)-set(new_names))
 	if len(old_names) == 0:
-		print('The whole team is new!')
+		for new_name in new_names:
+			player_stats.append(new_player_stats)
 	else:
 		for old_name in old_names:
 			old_name_stats = data.iloc[player_IDs_last_year[player_names_last_year.index(old_name)]-600000-1,:].tolist()
@@ -85,7 +87,7 @@ def main():
 					'win']
 	sample_ID = 0
 	past_player_names = []
-	data = get_data()
+	[data, teams] = get_data()
 	new_players_data = new_players_data_gen(data)
 	new_player_stats = new_players_data.iloc[:,2:-1].mean().tolist()
 	if not os.path.isfile(path+'features.csv'):
@@ -123,9 +125,9 @@ def main():
 					W_players_ID = [] #each ele type should be int
 					L_players_ID = []
 					for k in range(len(game_j)):
-						if game_j[k][-3] == W_ID and int(game_j[k][-2]) not in W_players_ID:
-							W_players_ID.append(int(game_j[k][-2]))
-						elif game_j[k][-3] == L_ID and int(game_j[k][-2]) not in L_players_ID:
+						if game_j[k][-3] == W_ID and int(game_j[k][-2]) not in teams and int(game_j[k][-2]) not in W_players_ID:
+								W_players_ID.append(int(game_j[k][-2]))
+						elif game_j[k][-3] == L_ID and int(game_j[k][-2]) not in teams and int(game_j[k][-2]) not in L_players_ID:
 							L_players_ID.append(int(game_j[k][-2]))
 
 					#Calculating WTeam stats
