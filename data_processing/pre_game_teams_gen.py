@@ -2,15 +2,15 @@
 #output: features.csv
 import os
 import csv
-import numpy as np 
-import pandas as pd 
+import numpy as np
+import pandas as pd
 
 path = './NCAA_data/'
 years = [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018]
 
 def get_data():
 	'''
-	process input data, 'time' records the avg game time for each player. 
+	process input data, 'time' records the avg game time for each player.
 	Other stats columns record stat per game for that player
 	'''
 	data = pd.read_csv(path+'data.csv', sep=',')
@@ -21,9 +21,9 @@ def get_data():
 	TEAMS = data.loc[data['name'] == 'TEAM']['player_ID'].tolist()
 	return data, TEAMS
 
-def player_stats_gen(player_IDs, player_names_this_year, player_IDs_this_year, player_names_last_year,  
+def player_stats_gen(player_IDs, player_names_this_year, player_IDs_this_year, player_names_last_year,
 	player_IDs_last_year, data, new_player_stats):
-	player_stats =[] 
+	player_stats =[]
 	names = []
 	for ID in player_IDs:
 		names.append(player_names_this_year[player_IDs_this_year.index(ID)])
@@ -41,7 +41,7 @@ def player_stats_gen(player_IDs, player_names_this_year, player_IDs_this_year, p
 
 	return player_stats
 
-def team_stats_gen(player_stats):	
+def team_stats_gen(player_stats):
 	data = pd.DataFrame(player_stats)
 	Total_time_before_rescale = data[0].sum()
 	data[0] = data[0]/Total_time_before_rescale*200.0 #rescale the total time for each team in a game. Each game is 40min long, so 40*5=200 min for all players in total
@@ -69,20 +69,20 @@ def new_players_data_gen(data):
 	return all_new_players_data
 
 def main():
-	output_features = ['sample_ID', 
-					'a_miss2_lay', 'a_reb_off', 'a_made2_jump', 
-					'a_miss2_jump', 'a_assist', 'a_made3_jump', 
-					'a_block', 'a_reb_def', 'a_foul_pers', 
-					'a_miss1_free', 'a_made1_free', 'a_miss3_jump', 
-					'a_turnover', 'a_steal', 'a_made2_dunk', 
-					'a_made2_lay', 'a_reb_dead', 'a_made2_tip', 
-					'a_miss2_dunk', 'a_miss2_tip', 'a_foul_tech', 
-					'b_miss2_lay', 'b_reb_off', 'b_made2_jump', 
-					'b_miss2_jump', 'b_assist', 'b_made3_jump', 
-					'b_block', 'b_reb_def', 'b_foul_pers', 
-					'b_miss1_free', 'b_made1_free', 'b_miss3_jump', 
-					'b_turnover', 'b_steal', 'b_made2_dunk', 
-					'b_made2_lay', 'b_reb_dead', 'b_made2_tip', 
+	output_features = ['sample_ID',
+					'a_miss2_lay', 'a_reb_off', 'a_made2_jump',
+					'a_miss2_jump', 'a_assist', 'a_made3_jump',
+					'a_block', 'a_reb_def', 'a_foul_pers',
+					'a_miss1_free', 'a_made1_free', 'a_miss3_jump',
+					'a_turnover', 'a_steal', 'a_made2_dunk',
+					'a_made2_lay', 'a_reb_dead', 'a_made2_tip',
+					'a_miss2_dunk', 'a_miss2_tip', 'a_foul_tech',
+					'b_miss2_lay', 'b_reb_off', 'b_made2_jump',
+					'b_miss2_jump', 'b_assist', 'b_made3_jump',
+					'b_block', 'b_reb_def', 'b_foul_pers',
+					'b_miss1_free', 'b_made1_free', 'b_miss3_jump',
+					'b_turnover', 'b_steal', 'b_made2_dunk',
+					'b_made2_lay', 'b_reb_dead', 'b_made2_tip',
 					'b_miss2_dunk', 'b_miss2_tip', 'b_foul_tech',
 					'win']
 	sample_ID = 0
@@ -90,13 +90,13 @@ def main():
 	[data, teams] = get_data()
 	new_players_data = new_players_data_gen(data)
 	new_player_stats = new_players_data.iloc[:,2:-1].mean().tolist()
-	if not os.path.isfile(path+'features.csv'):
-		with open(path+'features.csv', 'w') as outcsv:
+	if not os.path.isfile(path+'pre_game_teams.csv'):
+		with open(path+'pre_game_teams.csv', 'w') as outcsv:
 			writer = csv.writer(outcsv)
 			writer.writerow(output_features)
 			for year in years:
 				print('Training games in %d... The input data are taken from players stats in %d.' % (year, year - 1))
-				
+
 				players_last_year = pd.read_csv(path+'Players_'+str(year-1)+'.csv', sep=',') #打开上一年的player的信息
 				players_this_year = pd.read_csv(path+'Players_'+str(year)+'.csv', sep=',') #打开今年player的信息
 				this_year_player_IDs = players_this_year['PlayerID'].tolist() #每个ele的type是int
@@ -106,8 +106,8 @@ def main():
 
 				past_player_names = past_player_names + list(set(last_year_player_names)-set(past_player_names))
 
-				#Calculating team members in each game in this year 
-				events = list(csv.reader(open(path+'Events_' + str(year) + '.csv', 'r'))) 
+				#Calculating team members in each game in this year
+				events = list(csv.reader(open(path+'Events_' + str(year) + '.csv', 'r')))
 				prev_row = events[1]
 				partition_index = []
 				for i in range(1,len(events)):
@@ -147,4 +147,3 @@ def main():
 					sample_ID += 1
 
 main()
-
