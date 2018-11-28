@@ -4,12 +4,7 @@ Frame play-by-play row data files.
 Usage:
 	Change path1 to be the path of your event file, and path2 to be that of players file.
 '''
-root = '/Users/fzli/Desktop/ECS/171/Project/Basketball_data/PlayByPlay_'
-
-path1 = '/Users/fzli/Desktop/ECS/171/Project/' + \
-		'Basketball_data/PlayByPlay_2010/Events_2010.csv'
-path2 = '/Users/fzli/Desktop/ECS/171/Project/' + \
-		'Basketball_data/PlayByPlay_2010/Players_2010.csv'
+root = '/../NCAA_data/'
 
 header = ['player_ID', 'season', 'time', 'n_match', 'miss2_lay', 'reb_off', \
 			'made2_jump', 'miss2_jump', 'assist', 'made3_jump', 'block', \
@@ -33,10 +28,9 @@ def makeDataCsv():
 	for i in range(9):
 		year = 2010 + i
 		print("File " + str(year) + '...')
-		path = root + str(year)
-		filepath = path + '/Events_' + str(year) + '.csv'
+		filepath = root + '/Events_' + str(year) + '.csv'
 		events.extend(readFile(filepath))
-		filepath = path + '/Players_' + str(year) + '.csv'
+		filepath = root + '/Players_' + str(year) + '.csv'
 		players.extend(readFile(filepath))
 
 	offset = int(players[0][0])
