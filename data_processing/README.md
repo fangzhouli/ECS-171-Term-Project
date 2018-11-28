@@ -52,12 +52,12 @@ Pass in the path such that the list of your path contains:
     output/
 Then run the program
 
-### /pre_game_teams.py
+### /pre_game_teams_gen.py
 Take data from data.csv and compute expected team features and output to pre_game_teams.csv
 ### How to use:
-In current path: python3 pre_game_teams.py
+In current path: python3 pre_game_teams_gen.py
 
-### /post_game_team_diff.py
+### /post_game_team_diff_generator.py
 Take data from RegularSeasonDetailedResults.csv and compute post-game team features and output to post_game_team_diff.csv
 ### How to use:
-In current path: python3 post_game_team_diff.py
+In current path: python3 post_game_team_diff_generator.py
