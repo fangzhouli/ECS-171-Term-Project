@@ -23,9 +23,11 @@ which is at `/features.csv` .
 ### /data_processing/dfeatures_gen.py
 
 ### /data_processing/frame.py
-
+Read all play-by-play csv files and return a data frame containing player ability scores for each player.
+#### How to use:
+python3 frame.py
 ### /data_processing/readFile.py
-
+An API for reading csv file and returning a list containing each row of that csv file.
 ### /data_processing/remove_outlier.py
 Take the dataframe and use Isolation forest to detect outliers and output file with name "post_game_team_diff_removed_outlier.csv" .  
 #### How to use:
