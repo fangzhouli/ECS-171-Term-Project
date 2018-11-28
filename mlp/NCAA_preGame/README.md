@@ -1,6 +1,6 @@
-# /mlp/NCAA
+# /mlp/NCAA_preGame
 
-This is a directory for `datapoints` CSV files and respective plots from running grid search on NCAA dataset.
+This is a directory for `datapoints` CSV files and respective plots from running grid search on NCAA pre-game dataset.
 
 Naming format in sub-directories:
 

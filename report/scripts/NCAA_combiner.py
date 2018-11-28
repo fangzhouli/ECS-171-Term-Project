@@ -3,11 +3,11 @@ import os
 
 
 def combine(type):
-    """ Combine plots in /mlp/NCAA/plots/learningRate10e-1
+    """ Combine plots in /mlp/NCAA_preGame/plots/learningRate10e-1
         Input:
           - @type: either 'accuracy' or 'weights'
     """
-    rootdir = './mlp/NCAA/plots/learningRate10e-1'
+    rootdir = './mlp/NCAA_preGame/plots/learningRate10e-1'
     files = []
     for dir, subdirs, fs in os.walk(rootdir):
         for f in fs:

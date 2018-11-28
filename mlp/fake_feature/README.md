@@ -26,8 +26,8 @@ Then, the last column will be
 
 ## feature.csv
 
-A randomly generated dataset that is used as a placeholder for the real
-'feature.csv' with 10K rows of data.
+A randomly generated dataset that is used as a placeholder for
+'/pre_game_teams.csv' with 10K rows of data.
 
 ## input\_with\_wincol.csv
 
