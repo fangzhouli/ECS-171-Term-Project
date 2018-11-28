@@ -1,6 +1,7 @@
 # /data_processing
 
-A directory with everything related to data processing.
+A directory with everything related to data processing.     
+**Note: you don't have to run these scripts if you already have the data under `output/` directory since processing data may take a long time**
 
 ## Sub-directories
 
