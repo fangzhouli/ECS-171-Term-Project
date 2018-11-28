@@ -16,12 +16,8 @@ which is at `/features.csv` .
 
 ## Files
 
-### /data_processing/data.py
-
 ### /data_processing/dataframe.py
-
-### /data_processing/dfeatures_gen.py
-
+Using pandas to read play-by-play csv files, and return dataframe containing each row of that csv file.
 ### /data_processing/frame.py
 Read all play-by-play csv files and return a data frame containing player ability scores for each player.
 #### How to use:
