@@ -7,7 +7,7 @@ from keras.utils import np_utils
 
 output_class = [1, 0]
 
-all_games = pd.read_csv('./data_processing/raw/RegularSeasonDetailedResults.csv', sep=',')
+all_games = pd.read_csv('./NCAA_data/RegularSeasonDetailedResults.csv', sep=',')
 
 all_games['WFGM'] = all_games['WFGM'].div(all_games['WFGA'], axis = 0)*100.0
 all_games['WFGM3'] = all_games['WFGM3'].div(all_games['WFGA3'], axis = 0)*100.0
