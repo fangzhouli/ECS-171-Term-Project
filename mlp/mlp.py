@@ -422,8 +422,12 @@ class Mlp(object):
         # Output layer construction
         W['out'] = graph.get_tensor_by_name('Wout:0')
         b['out'] = graph.get_tensor_by_name('bout:0')
-        y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
-                              + b['out'])
+
+        if self.n_hidden is 0:
+            y['out'] = tf.nn.sigmoid(tf.matmul(X, W['out']) + b['out'])
+        else:
+            y['out'] = tf.nn.sigmoid(tf.matmul(y['h'+str(len(y))], W['out'])
+                                     + b['out'])
 
         # Loss function: binary cross entropy with 1e-30 to avoid log(0)
         cross_entropy = -tf.reduce_sum(Y * tf.log(y['out']+1e-30)
