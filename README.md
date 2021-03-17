@@ -1,6 +1,6 @@
-# An-ML-Approach-to-NCAA-Match-Prediction
+# An ML Approach to NCAA Match Prediction
 
-This is a repository of our approach with machine learning to perform prediction on the winner of a NCAA match based on the players statistics of the teams.
+This is a course project for ECS171 Machine Learning at UC Davis.
 
 ## NCAA_data
 
